@@ -335,8 +335,24 @@ func (si *StakingIndexer) HandleConfirmedBlock(b *types.IndexedBlock) error {
 	for _, tx := range b.Txs {
 		msgTx := tx.MsgTx()
 
+		// 0. try to parse scalar staking tx
+		stakingData, err := si.tryParseScalarStakingTx(msgTx, params)
+		if err == nil {
+			if err := si.ProcessScalarStakingTx(
+				msgTx, stakingData, uint64(b.Height), b.Header.Timestamp, params,
+			); err != nil {
+				// record metrics
+				failedProcessingStakingTxsCounter.Inc()
+				return fmt.Errorf("failed to process the scalar staking tx: %w", err)
+			}
+
+			// should not use *continue* here as a special case is
+			// the tx could be a staking tx as well as a withdrawal
+			// tx that spends the previous staking tx
+		}
+
 		// 1. try to parse staking tx
-		stakingData, err := si.tryParseStakingTx(msgTx, params)
+		stakingData, err = si.tryParseStakingTx(msgTx, params)
 		if err == nil {
 			if err := si.ProcessStakingTx(
 				msgTx, stakingData, uint64(b.Height), b.Header.Timestamp, params,
@@ -1002,6 +1018,26 @@ func (si *StakingIndexer) tryParseStakingTx(tx *wire.MsgTx, params *parser.Parse
 	return parsedData, nil
 }
 
+// TODO_SCALAR: implement the scalar staking tx try parsing
+func (si *StakingIndexer) tryParseScalarStakingTx(tx *wire.MsgTx, params *parser.ParsedVersionedGlobalParams) (*btcstaking.ParsedV0StakingTx, error) {
+	possible := IsPossibleV0StakingTx(tx, params.Tag)
+	if !possible {
+		return nil, fmt.Errorf("not staking tx")
+	}
+
+	parsedData, err := ParseV0StakingTx(
+		tx,
+		params.Tag,
+		params.CovenantPks,
+		params.CovenantQuorum,
+		&si.cfg.BTCNetParams)
+	if err != nil {
+		return nil, fmt.Errorf("not staking tx")
+	}
+
+	return parsedData, nil
+}
+
 func (si *StakingIndexer) GetStakingTxByHash(hash *chainhash.Hash) (*indexerstore.StoredStakingTransaction, error) {
 	return si.is.GetStakingTransaction(hash)
 }
@@ -1105,4 +1141,173 @@ func (si *StakingIndexer) getVersionedParams(height uint64) (*parser.ParsedVersi
 	}
 
 	return params, nil
+}
+
+// validateScalarStakingTx performs the validation checks for the staking tx
+// such as min and max staking amount and staking time
+// TODO_SCALAR: implement the scalar staking tx validation (if needed)
+func (si *StakingIndexer) validateScalarStakingTx(params *parser.ParsedVersionedGlobalParams, stakingData *btcstaking.ParsedV0StakingTx) error {
+	value := btcutil.Amount(stakingData.StakingOutput.Value)
+	// Minimum staking amount check
+	if value < params.MinStakingAmount {
+		return fmt.Errorf("%w: staking amount is too low, expected: %v, got: %v",
+			ErrInvalidStakingTx, params.MinStakingAmount, value)
+	}
+
+	// Maximum staking amount check
+	if value > params.MaxStakingAmount {
+		return fmt.Errorf("%w: staking amount is too high, expected: %v, got: %v",
+			ErrInvalidStakingTx, params.MaxStakingAmount, value)
+	}
+
+	// Maximum staking time check
+	if uint64(stakingData.OpReturnData.StakingTime) > uint64(params.MaxStakingTime) {
+		return fmt.Errorf("%w: staking time is too high, expected: %v, got: %v",
+			ErrInvalidStakingTx, params.MaxStakingTime, stakingData.OpReturnData.StakingTime)
+	}
+
+	// Minimum staking time check
+	if uint64(stakingData.OpReturnData.StakingTime) < uint64(params.MinStakingTime) {
+		return fmt.Errorf("%w: staking time is too low, expected: %v, got: %v",
+			ErrInvalidStakingTx, params.MinStakingTime, stakingData.OpReturnData.StakingTime)
+	}
+
+	return nil
+}
+
+func (si *StakingIndexer) ProcessScalarStakingTx(
+	tx *wire.MsgTx,
+	stakingData *btcstaking.ParsedV0StakingTx,
+	height uint64, timestamp time.Time,
+	params *parser.ParsedVersionedGlobalParams,
+) error {
+	var (
+		// whether the staking tx is overflow
+		isOverflow bool
+	)
+
+	si.logger.Info("found a scalar staking tx",
+		zap.Uint64("height", height),
+		zap.String("tx_hash", tx.TxHash().String()),
+		zap.Int64("value", stakingData.StakingOutput.Value),
+	)
+
+	// check whether the staking tx already exists in db
+	// if so, get the isOverflow from the data in db
+	// otherwise, check it if the current tvl already reaches
+	// the cap
+	txHash := tx.TxHash()
+	storedStakingTx, err := si.is.GetScalarStakingTransaction(&txHash)
+	if err != nil {
+		return err
+	}
+	if storedStakingTx != nil {
+		isOverflow = storedStakingTx.IsOverflow
+	} else {
+		// this is a new staking tx, validate it against staking requirement
+		if err := si.validateScalarStakingTx(params, stakingData); err != nil {
+			invalidTransactionsCounter.WithLabelValues("confirmed_staking_transaction").Inc()
+			si.logger.Warn("found an invalid scalar staking tx",
+				zap.String("tx_hash", tx.TxHash().String()),
+				zap.Uint64("height", height),
+				zap.Bool("is_confirmed", true),
+				zap.Error(err),
+			)
+			// TODO handle invalid staking tx (storing and pushing events)
+			return nil
+		}
+
+		// check if the staking tvl is overflow with this staking tx
+		stakingOverflow, err := si.isOverflow(height, params)
+		if err != nil {
+			return fmt.Errorf("failed to check the overflow of scalar staking tx: %w", err)
+		}
+
+		isOverflow = stakingOverflow
+	}
+
+	if isOverflow {
+		si.logger.Info("the scalar staking tx is overflow",
+			zap.String("tx_hash", tx.TxHash().String()))
+	}
+
+	// add the staking transaction to the system state
+	if err := si.addScalarStakingTransaction(
+		height, timestamp, tx,
+		stakingData.OpReturnData.StakerPublicKey.PubKey,
+		stakingData.OpReturnData.FinalityProviderPublicKey.PubKey,
+		uint64(stakingData.StakingOutput.Value),
+		uint32(stakingData.OpReturnData.StakingTime),
+		uint32(stakingData.StakingOutputIdx),
+		isOverflow,
+	); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// addScalarStakingTransaction pushes the scalar staking event, saves it to the database
+// and records metrics
+func (si *StakingIndexer) addScalarStakingTransaction(
+	height uint64,
+	timestamp time.Time,
+	tx *wire.MsgTx,
+	stakerPk *btcec.PublicKey,
+	fpPk *btcec.PublicKey,
+	stakingValue uint64,
+	stakingTime uint32,
+	stakingOutputIndex uint32,
+	isOverflow bool,
+) error {
+	txHex, err := getTxHex(tx)
+	if err != nil {
+		return err
+	}
+
+	stakingEvent := queuecli.NewScalarStakingEvent(
+		tx.TxHash().String(),
+		hex.EncodeToString(schnorr.SerializePubKey(stakerPk)),
+		hex.EncodeToString(schnorr.SerializePubKey(fpPk)),
+		stakingValue,
+		height,
+		timestamp.Unix(),
+		uint64(stakingTime),
+		uint64(stakingOutputIndex),
+		txHex,
+		isOverflow,
+	)
+
+	// push the events first then save the tx due to the assumption
+	// that the consumer can handle duplicate events
+	if err := si.consumer.PushScalarStakingEvent(&stakingEvent); err != nil {
+		return fmt.Errorf("failed to push the scalar staking event to the queue: %w", err)
+	}
+
+	si.logger.Info("saving the scalar staking transaction",
+		zap.String("tx_hash", tx.TxHash().String()),
+	)
+
+	// save the staking tx in the db
+	if err := si.is.AddScalarStakingTransaction(
+		tx, stakingOutputIndex, height,
+		stakerPk, stakingTime, fpPk,
+		stakingValue, isOverflow,
+	); err != nil && !errors.Is(err, indexerstore.ErrDuplicateTransaction) {
+		return fmt.Errorf("failed to add the staking tx to store: %w", err)
+	}
+
+	si.logger.Info("successfully saved the staking transaction",
+		zap.String("tx_hash", tx.TxHash().String()),
+	)
+
+	// record metrics
+	if isOverflow {
+		totalStakingTxs.WithLabelValues("overflow").Inc()
+	} else {
+		totalStakingTxs.WithLabelValues("active").Inc()
+	}
+	lastFoundStakingTxHeight.Set(float64(height))
+
+	return nil
 }

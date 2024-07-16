@@ -331,3 +331,5 @@ require (
 )
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+
+replace github.com/babylonchain/staking-queue-client => github.com/scalarorg/staking-queue-client v0.2.2-0.20240716093318-1e2c035c57b1

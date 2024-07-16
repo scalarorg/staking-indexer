@@ -56,10 +56,24 @@ func (m *MockEventConsumer) PushStakingEvent(ev *client.ActiveStakingEvent) erro
 	return ret0
 }
 
+// PushScalarStakingEvent mocks base method.
+func (m *MockEventConsumer) PushScalarStakingEvent(ev *client.ScalarStakingEvent) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PushScalarStakingEvent", ev)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
 // PushStakingEvent indicates an expected call of PushStakingEvent.
 func (mr *MockEventConsumerMockRecorder) PushStakingEvent(ev interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PushStakingEvent", reflect.TypeOf((*MockEventConsumer)(nil).PushStakingEvent), ev)
+}
+
+// PushScalarStakingEvent indicates an expected call of PushStakingEvent.
+func (mr *MockEventConsumerMockRecorder) PushScalarStakingEvent(ev interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PushStakingEvent", reflect.TypeOf((*MockEventConsumer)(nil).PushScalarStakingEvent), ev)
 }
 
 // PushUnbondingEvent mocks base method.

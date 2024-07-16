@@ -18,6 +18,9 @@ import (
 )
 
 var (
+	// mapping tx hash -> scalar staking transaction
+	scalarStakingTxBucketName = []byte("scalarstakingtxs")
+
 	// mapping tx hash -> staking transaction
 	stakingTxBucketName = []byte("stakingtxs")
 
@@ -33,6 +36,18 @@ var (
 
 type IndexerStore struct {
 	db kvdb.Backend
+}
+
+// Scalar
+type StoredScalarStakingTransaction struct {
+	Tx                 *wire.MsgTx
+	StakingOutputIdx   uint32
+	InclusionHeight    uint64
+	StakerPk           *btcec.PublicKey
+	StakingTime        uint32
+	FinalityProviderPk *btcec.PublicKey
+	IsOverflow         bool
+	StakingValue       uint64
 }
 
 type StoredStakingTransaction struct {
@@ -546,4 +561,137 @@ func uint64FromBytes(b []byte) (uint64, error) {
 	}
 
 	return binary.BigEndian.Uint64(b), nil
+}
+
+// Scalar
+
+func (is *IndexerStore) AddScalarStakingTransaction(
+	tx *wire.MsgTx,
+	stakingOutputIdx uint32,
+	inclusionHeight uint64,
+	stakerPk *btcec.PublicKey,
+	stakingTime uint32,
+	fpPk *btcec.PublicKey,
+	stakingValue uint64,
+	isOverflow bool,
+) error {
+	txHash := tx.TxHash()
+	serializedTx, err := utils.SerializeBtcTransaction(tx)
+
+	if err != nil {
+		return err
+	}
+
+	msg := proto.ScalarStakingTransaction{
+		TransactionBytes:   serializedTx,
+		StakingOutputIdx:   stakingOutputIdx,
+		InclusionHeight:    inclusionHeight,
+		StakingTime:        stakingTime,
+		StakerPk:           schnorr.SerializePubKey(stakerPk),
+		FinalityProviderPk: schnorr.SerializePubKey(fpPk),
+		IsOverflow:         isOverflow,
+		StakingValue:       stakingValue,
+	}
+
+	return is.addScalarStakingTransaction(txHash[:], &msg)
+}
+
+func (is *IndexerStore) addScalarStakingTransaction(
+	txHashBytes []byte,
+	st *proto.ScalarStakingTransaction,
+) error {
+	return kvdb.Batch(is.db, func(tx kvdb.RwTx) error {
+
+		txBucket := tx.ReadWriteBucket(scalarStakingTxBucketName)
+		if txBucket == nil {
+			return ErrCorruptedTransactionsDb
+		}
+		maybeTx := txBucket.Get(txHashBytes)
+		if maybeTx != nil {
+			return ErrDuplicateTransaction
+		}
+
+		marshalled, err := pm.Marshal(st)
+		if err != nil {
+			return err
+		}
+
+		err = txBucket.Put(txHashBytes, marshalled)
+		if err != nil {
+			return err
+		}
+
+		// if the staking tx is an overflow, we don't increment the confirmed tvl
+		if st.IsOverflow {
+			return nil
+		}
+		return is.incrementConfirmedTvl(tx, st.StakingValue)
+	})
+}
+
+// GetStakingTransaction retrieves the stored staking transaction by the given hash
+// it returns (nil, nil) if the transaction is not found
+func (is *IndexerStore) GetScalarStakingTransaction(txHash *chainhash.Hash) (*StoredScalarStakingTransaction, error) {
+	var storedTx *StoredScalarStakingTransaction
+	txHashBytes := txHash.CloneBytes()
+
+	err := is.db.View(func(tx kvdb.RTx) error {
+		txBucket := tx.ReadBucket(scalarStakingTxBucketName)
+		if txBucket == nil {
+			return ErrCorruptedTransactionsDb
+		}
+
+		maybeTx := txBucket.Get(txHashBytes)
+		if maybeTx == nil {
+			return ErrTransactionNotFound
+		}
+
+		var storedTxProto proto.StakingTransaction
+		if err := pm.Unmarshal(maybeTx, &storedTxProto); err != nil {
+			return ErrCorruptedTransactionsDb
+		}
+
+		txFromDb, err := protoScalarStakingTxToStoredStakingTx(&storedTxProto)
+		if err != nil {
+			return err
+		}
+
+		storedTx = txFromDb
+		return nil
+	}, func() {})
+
+	if err != nil && !errors.Is(err, ErrTransactionNotFound) {
+		return nil, err
+	}
+
+	return storedTx, nil
+}
+
+func protoScalarStakingTxToStoredStakingTx(protoTx *proto.StakingTransaction) (*StoredScalarStakingTransaction, error) {
+	var stakingTx wire.MsgTx
+	err := stakingTx.Deserialize(bytes.NewReader(protoTx.TransactionBytes))
+	if err != nil {
+		return nil, fmt.Errorf("invalid staking tx: %w", err)
+	}
+
+	stakerPk, err := schnorr.ParsePubKey(protoTx.StakerPk)
+	if err != nil {
+		return nil, fmt.Errorf("invalid staker pk: %w", err)
+	}
+
+	fpPk, err := schnorr.ParsePubKey(protoTx.FinalityProviderPk)
+	if err != nil {
+		return nil, fmt.Errorf("invalid finality provider pk: %w", err)
+	}
+
+	return &StoredScalarStakingTransaction{
+		Tx:                 &stakingTx,
+		StakingOutputIdx:   protoTx.StakingOutputIdx,
+		InclusionHeight:    protoTx.InclusionHeight,
+		StakerPk:           stakerPk,
+		StakingTime:        protoTx.StakingTime,
+		FinalityProviderPk: fpPk,
+		IsOverflow:         protoTx.IsOverflow,
+		StakingValue:       protoTx.StakingValue,
+	}, nil
 }

@@ -285,8 +285,6 @@ github.com/babylonchain/babylon v0.9.0-rc.1 h1:mZYKQVHVKFUA2xaEAzJloB1kyePHvZECJ
 github.com/babylonchain/babylon v0.9.0-rc.1/go.mod h1:YFALTW+Kp/b5jSDoA7Z70RggJjAedlmQTrpdeU8c3hY=
 github.com/babylonchain/networks/parameters v0.2.1 h1:OKHiCnwL/UdVN17cMwCrHz/bAjO/USauLiPyNlnVl6E=
 github.com/babylonchain/networks/parameters v0.2.1/go.mod h1:nejhvrL7Iwh5Vunvkg7pnomQZlHnyNzOY9lQaDp6tOA=
-github.com/babylonchain/staking-queue-client v0.2.1 h1:FKbxUUOoCydAsUoj9XQMIQT1S79ThX9p7vVc5yjWm8c=
-github.com/babylonchain/staking-queue-client v0.2.1/go.mod h1:mEgA6N3SnwFwGEOsUYr/HdjpKa13Wck08MS7VY/Icvo=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
@@ -1218,6 +1216,8 @@ github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da/go.mod h1:gi+0
 github.com/sasha-s/go-deadlock v0.3.1 h1:sqv7fDNShgjcaxkO0JNcOAlr8B9+cV5Ey/OB71efZx0=
 github.com/sasha-s/go-deadlock v0.3.1/go.mod h1:F73l+cr82YSh10GxyRI6qZiCgK64VaZjwesgfQ1/iLM=
 github.com/satori/go.uuid v1.2.0/go.mod h1:dA0hQrYB0VpLJoorglMZABFdXlWrHn1NEOzdhQKdks0=
+github.com/scalarorg/staking-queue-client v0.2.2-0.20240716093318-1e2c035c57b1 h1:FsqmRSHY3ByK8BJSSPbcklROOyaArUG/7PqpYRAsc90=
+github.com/scalarorg/staking-queue-client v0.2.2-0.20240716093318-1e2c035c57b1/go.mod h1:mEgA6N3SnwFwGEOsUYr/HdjpKa13Wck08MS7VY/Icvo=
 github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529/go.mod h1:DxrIzT+xaE7yg65j358z/aeFdxmN0P9QXhEzd20vsDc=
 github.com/seccomp/libseccomp-golang v0.9.2-0.20220502022130-f33da4d89646/go.mod h1:JA8cRccbGaA1s33RQf7Y1+q9gHmZX1yB/z9WDN1C6fg=
 github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24/go.mod h1:M+9NzErvs504Cn4c5DxATwIqPbtswREoFCre64PpcG4=
