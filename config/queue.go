@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	clicfg "github.com/babylonchain/staking-queue-client/config"
+	// clicfg "github.com/babylonchain/staking-queue-client/config"
+	clicfg "github.com/scalarorg/staking-queue-client/config"
 )
 
 const (

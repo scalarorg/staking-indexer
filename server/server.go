@@ -9,9 +9,12 @@ import (
 	"github.com/lightningnetwork/lnd/signal"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/staking-indexer/config"
-	"github.com/babylonchain/staking-indexer/consumer"
-	"github.com/babylonchain/staking-indexer/indexer"
+	// "github.com/babylonchain/staking-indexer/config"
+	// "github.com/babylonchain/staking-indexer/consumer"
+	// "github.com/babylonchain/staking-indexer/indexer"
+	"github.com/scalarorg/staking-indexer/config"
+	"github.com/scalarorg/staking-indexer/consumer"
+	"github.com/scalarorg/staking-indexer/indexer"
 )
 
 // Server is the main daemon construct for the staking indexer service. It handles

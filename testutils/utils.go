@@ -22,7 +22,8 @@ import (
 	"github.com/lightningnetwork/lnd/kvdb"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/staking-indexer/config"
+	// "github.com/babylonchain/staking-indexer/config"
+	"github.com/scalarorg/staking-indexer/config"
 )
 
 type Utxo struct {

@@ -6,13 +6,15 @@ import (
 	"fmt"
 
 	// "github.com/babylonchain/staking-indexer/proto"
-	"github.com/babylonchain/staking-indexer/utils"
+	// "github.com/babylonchain/staking-indexer/utils"
+	"github.com/scalarorg/staking-indexer/proto"
+	"github.com/scalarorg/staking-indexer/utils"
+
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/kvdb"
-	"github.com/scalarorg/staking-indexer/proto"
 	pm "google.golang.org/protobuf/proto"
 )
 

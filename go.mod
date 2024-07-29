@@ -1,4 +1,4 @@
-module github.com/babylonchain/staking-indexer
+module github.com/scalarorg/staking-indexer
 
 go 1.22.3
 
@@ -7,10 +7,11 @@ toolchain go1.22.4
 require (
 	cosmossdk.io/math v1.3.0
 	github.com/avast/retry-go/v4 v4.5.1
-	github.com/babylonchain/babylon v0.9.0-rc.1
+	github.com/babylonchain/babylon v0.9.0-rc.3.0.20240719052512-66d213148a02
 	github.com/babylonchain/networks/parameters v0.2.1
+	github.com/babylonchain/staking-indexer v0.2.5
 	github.com/babylonchain/staking-queue-client v0.2.1
-	github.com/btcsuite/btcd v0.24.0
+	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.5
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
@@ -25,14 +26,12 @@ require (
 	github.com/prometheus/client_golang v1.19.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/scalarorg/btcvault v0.0.0-00010101000000-000000000000
-	github.com/scalarorg/staking-indexer/indexerstore v0.0.0-00010101000000-000000000000
-	github.com/scalarorg/staking-queue-client/client v0.0.0-00010101000000-000000000000
-	github.com/scalarorg/staking-queue-client/queuemngr v0.0.0-00010101000000-000000000000
+	github.com/scalarorg/staking-queue-client v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli v1.22.14
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.27.0
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.34.2
 )
 
 require (
@@ -60,7 +59,7 @@ require (
 	github.com/99designs/keyring v1.2.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/CosmWasm/wasmd v0.51.0 // indirect
-	github.com/CosmWasm/wasmvm/v2 v2.0.0 // indirect
+	github.com/CosmWasm/wasmvm/v2 v2.0.1 // indirect
 	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
 	github.com/DataDog/zstd v1.5.5 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
@@ -93,7 +92,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.0 // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
-	github.com/cometbft/cometbft v0.38.6 // indirect
+	github.com/cometbft/cometbft v0.38.7 // indirect
 	github.com/cometbft/cometbft-db v0.9.1 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
@@ -108,7 +107,8 @@ require (
 	github.com/cosmos/gogoproto v1.4.12 // indirect
 	github.com/cosmos/iavl v1.1.2 // indirect
 	github.com/cosmos/ibc-go/modules/capability v1.0.0 // indirect
-	github.com/cosmos/ibc-go/v8 v8.0.0 // indirect
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20240429153234-e1e6da7e4ead // indirect
+	github.com/cosmos/ibc-go/v8 v8.3.0 // indirect
 	github.com/cosmos/ics23/go v0.10.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.13.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
@@ -141,7 +141,6 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
 	github.com/gogo/protobuf v1.3.3 // indirect
@@ -255,7 +254,6 @@ require (
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
-	github.com/scalarorg/staking-indexer/proto v0.0.0-00010101000000-000000000000 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
@@ -315,7 +313,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240227224415-6ceb2ff114de // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240401170217-c3f982113cda // indirect
 	google.golang.org/grpc v1.63.2 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -340,10 +337,4 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 replace github.com/scalarorg/btcvault => ../btc-vault
 
-replace github.com/scalarorg/staking-indexer/indexerstore => ./indexerstore
-
-replace github.com/scalarorg/staking-indexer/proto => ./proto
-
-replace github.com/scalarorg/staking-queue-client/client => ../staking-queue-client/client
-
-replace github.com/scalarorg/staking-queue-client/queuemngr => ../staking-queue-client/queuemngr
+replace github.com/scalarorg/staking-queue-client => ../staking-queue-client

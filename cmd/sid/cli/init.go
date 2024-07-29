@@ -7,8 +7,10 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/urfave/cli"
 
-	"github.com/babylonchain/staking-indexer/config"
-	"github.com/babylonchain/staking-indexer/utils"
+	// "github.com/babylonchain/staking-indexer/config"
+	// "github.com/babylonchain/staking-indexer/utils"
+	"github.com/scalarorg/staking-indexer/config"
+	"github.com/scalarorg/staking-indexer/utils"
 )
 
 const forceFlag = "force"

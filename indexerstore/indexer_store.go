@@ -14,8 +14,10 @@ import (
 	pm "google.golang.org/protobuf/proto"
 
 	// "github.com/babylonchain/staking-indexer/proto"
-	"github.com/babylonchain/staking-indexer/utils"
+	// "github.com/babylonchain/staking-indexer/utils"
+
 	"github.com/scalarorg/staking-indexer/proto"
+	"github.com/scalarorg/staking-indexer/utils"
 )
 
 var (

@@ -1,8 +1,9 @@
 package btcscanner
 
 import (
-	"github.com/babylonchain/staking-indexer/types"
+	// "github.com/babylonchain/staking-indexer/types"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/scalarorg/staking-indexer/types"
 )
 
 type Client interface {

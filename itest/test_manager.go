@@ -29,18 +29,27 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/staking-indexer/btcclient"
-	"github.com/babylonchain/staking-indexer/btcscanner"
-	"github.com/babylonchain/staking-indexer/config"
-	"github.com/babylonchain/staking-indexer/indexer"
-
+	// "github.com/babylonchain/staking-indexer/btcclient"
+	// "github.com/babylonchain/staking-indexer/btcscanner"
+	// "github.com/babylonchain/staking-indexer/config"
+	// "github.com/babylonchain/staking-indexer/indexer"
 	// "github.com/babylonchain/staking-indexer/indexerstore"
-	"github.com/babylonchain/staking-indexer/log"
-	"github.com/babylonchain/staking-indexer/params"
-	"github.com/babylonchain/staking-indexer/server"
-	"github.com/babylonchain/staking-indexer/testutils"
-	"github.com/babylonchain/staking-indexer/testutils/datagen"
+	// "github.com/babylonchain/staking-indexer/log"
+	// "github.com/babylonchain/staking-indexer/params"
+	// "github.com/babylonchain/staking-indexer/server"
+	// "github.com/babylonchain/staking-indexer/testutils"
+	// "github.com/babylonchain/staking-indexer/testutils/datagen"
+
+	"github.com/scalarorg/staking-indexer/btcclient"
+	"github.com/scalarorg/staking-indexer/btcscanner"
+	"github.com/scalarorg/staking-indexer/config"
+	"github.com/scalarorg/staking-indexer/indexer"
 	"github.com/scalarorg/staking-indexer/indexerstore"
+	"github.com/scalarorg/staking-indexer/log"
+	"github.com/scalarorg/staking-indexer/params"
+	"github.com/scalarorg/staking-indexer/server"
+	"github.com/scalarorg/staking-indexer/testutils"
+	"github.com/scalarorg/staking-indexer/testutils/datagen"
 )
 
 type TestManager struct {

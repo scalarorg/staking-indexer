@@ -12,10 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/staking-indexer/btcscanner"
-	"github.com/babylonchain/staking-indexer/testutils/datagen"
-	"github.com/babylonchain/staking-indexer/testutils/mocks"
-	"github.com/babylonchain/staking-indexer/types"
+	// "github.com/babylonchain/staking-indexer/btcscanner"
+	// "github.com/babylonchain/staking-indexer/testutils/datagen"
+	// "github.com/babylonchain/staking-indexer/testutils/mocks"
+	// "github.com/babylonchain/staking-indexer/types"
+	"github.com/scalarorg/staking-indexer/btcscanner"
+	"github.com/scalarorg/staking-indexer/testutils/datagen"
+	"github.com/scalarorg/staking-indexer/testutils/mocks"
+	"github.com/scalarorg/staking-indexer/types"
 )
 
 // FuzzBootstrap tests happy path of bootstrapping

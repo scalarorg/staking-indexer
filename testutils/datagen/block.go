@@ -12,7 +12,8 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 
-	"github.com/babylonchain/staking-indexer/types"
+	// "github.com/babylonchain/staking-indexer/types"
+	"github.com/scalarorg/staking-indexer/types"
 )
 
 func GenRandomBlock(r *rand.Rand, prevHash *chainhash.Hash) *wire.MsgBlock {

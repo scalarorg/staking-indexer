@@ -5,7 +5,8 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 
-	"github.com/babylonchain/staking-indexer/utils"
+	// "github.com/babylonchain/staking-indexer/utils"
+	"github.com/scalarorg/staking-indexer/utils"
 )
 
 // IndexedBlock is a BTC block with some extra information compared to wire.MsgBlock, including:

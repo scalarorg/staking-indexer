@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/staking-indexer/config"
+	// "github.com/babylonchain/staking-indexer/config"
+	"github.com/scalarorg/staking-indexer/config"
 )
 
 func setupTestQueueConsumer(t *testing.T, cfg *config.QueueConfig) (*queuemngr.QueueManager, error) {

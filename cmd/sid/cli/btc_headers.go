@@ -9,11 +9,18 @@ import (
 
 	babylontypes "github.com/babylonchain/babylon/types"
 	bbnbtclightclienttypes "github.com/babylonchain/babylon/x/btclightclient/types"
-	"github.com/babylonchain/staking-indexer/btcclient"
-	"github.com/babylonchain/staking-indexer/btcscanner"
-	"github.com/babylonchain/staking-indexer/config"
-	"github.com/babylonchain/staking-indexer/log"
-	"github.com/babylonchain/staking-indexer/utils"
+
+	// "github.com/babylonchain/staking-indexer/btcclient"
+	// "github.com/babylonchain/staking-indexer/btcscanner"
+	// "github.com/babylonchain/staking-indexer/config"
+	// "github.com/babylonchain/staking-indexer/log"
+	// "github.com/babylonchain/staking-indexer/utils"
+	"github.com/scalarorg/staking-indexer/btcclient"
+	"github.com/scalarorg/staking-indexer/btcscanner"
+	"github.com/scalarorg/staking-indexer/config"
+	"github.com/scalarorg/staking-indexer/log"
+	"github.com/scalarorg/staking-indexer/utils"
+
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 

@@ -7,9 +7,12 @@ import (
 	bbndatagen "github.com/babylonchain/babylon/testutil/datagen"
 	babylontypes "github.com/babylonchain/babylon/types"
 
-	"github.com/babylonchain/staking-indexer/cmd/sid/cli"
-	"github.com/babylonchain/staking-indexer/testutils/datagen"
-	"github.com/babylonchain/staking-indexer/testutils/mocks"
+	// "github.com/babylonchain/staking-indexer/cmd/sid/cli"
+	// "github.com/babylonchain/staking-indexer/testutils/datagen"
+	// "github.com/babylonchain/staking-indexer/testutils/mocks"
+	"github.com/scalarorg/staking-indexer/cmd/sid/cli"
+	"github.com/scalarorg/staking-indexer/testutils/datagen"
+	"github.com/scalarorg/staking-indexer/testutils/mocks"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"

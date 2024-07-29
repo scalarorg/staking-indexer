@@ -8,8 +8,10 @@ import (
 	bbndatagen "github.com/babylonchain/babylon/testutil/datagen"
 	"github.com/stretchr/testify/require"
 
-	"github.com/babylonchain/staking-indexer/btcscanner"
-	"github.com/babylonchain/staking-indexer/testutils/datagen"
+	// "github.com/babylonchain/staking-indexer/btcscanner"
+	// "github.com/babylonchain/staking-indexer/testutils/datagen"
+	"github.com/scalarorg/staking-indexer/btcscanner"
+	"github.com/scalarorg/staking-indexer/testutils/datagen"
 )
 
 // FuzzBtcCache fuzzes the BtcCache type

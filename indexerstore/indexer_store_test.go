@@ -9,9 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	// "github.com/babylonchain/staking-indexer/indexerstore"
-	"github.com/babylonchain/staking-indexer/testutils"
-	"github.com/babylonchain/staking-indexer/testutils/datagen"
+	// "github.com/babylonchain/staking-indexer/testutils"
+	// "github.com/babylonchain/staking-indexer/testutils/datagen"
+
 	"github.com/scalarorg/staking-indexer/indexerstore"
+	"github.com/scalarorg/staking-indexer/testutils"
+	"github.com/scalarorg/staking-indexer/testutils/datagen"
 )
 
 func TestEmptyStore(t *testing.T) {

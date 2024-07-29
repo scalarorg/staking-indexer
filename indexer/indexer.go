@@ -12,22 +12,26 @@ import (
 	"github.com/babylonchain/networks/parameters/parser"
 
 	// queuecli "github.com/babylonchain/staking-queue-client/client"
+	queuecli "github.com/scalarorg/staking-queue-client/client"
+
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/lightningnetwork/lnd/kvdb"
-	queuecli "github.com/scalarorg/staking-queue-client/client"
 	"go.uber.org/zap"
 
-	"github.com/babylonchain/staking-indexer/btcscanner"
-	"github.com/babylonchain/staking-indexer/config"
-	"github.com/babylonchain/staking-indexer/consumer"
-
+	// "github.com/babylonchain/staking-indexer/btcscanner"
+	// "github.com/babylonchain/staking-indexer/config"
+	// "github.com/babylonchain/staking-indexer/consumer"
 	// "github.com/babylonchain/staking-indexer/indexerstore"
-	"github.com/babylonchain/staking-indexer/types"
+	// "github.com/babylonchain/staking-indexer/types"
+	"github.com/scalarorg/staking-indexer/btcscanner"
+	"github.com/scalarorg/staking-indexer/config"
+	"github.com/scalarorg/staking-indexer/consumer"
 	"github.com/scalarorg/staking-indexer/indexerstore"
+	"github.com/scalarorg/staking-indexer/types"
 )
 
 type StakingIndexer struct {

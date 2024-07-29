@@ -11,19 +11,19 @@ import (
 	"github.com/babylonchain/networks/parameters/parser"
 
 	// "github.com/babylonchain/staking-indexer/indexerstore"
-
-	"github.com/babylonchain/staking-indexer/types"
+	// "github.com/babylonchain/staking-indexer/types"
 	// queuecli "github.com/babylonchain/staking-queue-client/client"
+	"github.com/scalarorg/staking-indexer/indexerstore"
+	"github.com/scalarorg/staking-indexer/types"
+	queuecli "github.com/scalarorg/staking-queue-client/client"
+
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/scalarorg/btcvault"
-	queuecli "github.com/scalarorg/staking-queue-client/client"
 
-	// "github.com/scalarorg/staking-indexer/indexerstore"
-	"github.com/scalarorg/staking-indexer/indexerstore"
 	"go.uber.org/zap"
 )
 

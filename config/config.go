@@ -8,7 +8,8 @@ import (
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/jessevdk/go-flags"
 
-	"github.com/babylonchain/staking-indexer/utils"
+	// "github.com/babylonchain/staking-indexer/utils"
+	"github.com/scalarorg/staking-indexer/utils"
 )
 
 const (

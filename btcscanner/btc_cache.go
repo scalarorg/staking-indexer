@@ -5,7 +5,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/babylonchain/staking-indexer/types"
+	// "github.com/babylonchain/staking-indexer/types"
+	"github.com/scalarorg/staking-indexer/types"
 )
 
 const defaultMaxEntries = 100
