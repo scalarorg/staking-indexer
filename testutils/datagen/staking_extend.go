@@ -15,7 +15,7 @@ import (
 
 	// "github.com/babylonchain/staking-indexer/indexerstore"
 
-	"github.com/scalarorg/btcvault"
+	btcvault "github.com/scalarorg/btc-vault"
 	"github.com/scalarorg/staking-indexer/indexerstore"
 )
 

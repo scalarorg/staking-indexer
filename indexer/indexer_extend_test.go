@@ -13,7 +13,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/scalarorg/btcvault"
+	btcvault "github.com/scalarorg/btc-vault"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 

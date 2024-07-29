@@ -5,12 +5,16 @@ go 1.22.3
 toolchain go1.22.4
 
 require (
+    github.com/scalarorg/btc-vault v0.0.1
+	github.com/scalarorg/staking-queue-client v0.3.2
+)
+
+require (
 	cosmossdk.io/math v1.3.0
 	github.com/avast/retry-go/v4 v4.5.1
 	github.com/babylonchain/babylon v0.9.0-rc.3.0.20240719052512-66d213148a02
 	github.com/babylonchain/networks/parameters v0.2.1
 	github.com/babylonchain/staking-indexer v0.2.5
-	github.com/babylonchain/staking-queue-client v0.2.1
 	github.com/btcsuite/btcd v0.24.2
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.5
@@ -25,8 +29,7 @@ require (
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/rabbitmq/amqp091-go v1.10.0
-	github.com/scalarorg/btcvault v0.0.0-00010101000000-000000000000
-	github.com/scalarorg/staking-queue-client v0.0.0-00010101000000-000000000000
+	github.com/scalarorg/btc-vault v0.0.1
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli v1.22.14
 	go.uber.org/atomic v1.10.0
@@ -68,6 +71,7 @@ require (
 	github.com/aead/siphash v1.0.1 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/aws/aws-sdk-go v1.44.312 // indirect
+	github.com/babylonchain/staking-queue-client v0.2.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
@@ -334,7 +338,3 @@ require (
 )
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-
-replace github.com/scalarorg/btcvault => ../btc-vault
-
-replace github.com/scalarorg/staking-queue-client => ../staking-queue-client
