@@ -175,6 +175,7 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 				vaultTxs, _ = getSpentFromVaultTxs(msgTx, unconfirmedVaultTxs)
 			}
 			for _, vaultTx := range vaultTxs {
+				// TODO SCALAR - update with babylon main branch
 				// 3. is a spending tx, check whether it is a valid burning tx
 				paramsFromVaultTxHeight, err := si.getVersionedParams(vaultTx.InclusionHeight)
 				if err != nil {
