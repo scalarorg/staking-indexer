@@ -45,7 +45,7 @@ func GenerateTestVaultData(
 	chainID := bbndatagen.GenRandomByteArray(r, 8)
 	chainIdUserAddress := bbndatagen.GenRandomByteArray(r, 20)
 	chainIdSmartContractAddress := bbndatagen.GenRandomByteArray(r, 20)
-	mintingAmount := bbndatagen.GenRandomByteArray(r, 32)
+	mintingAmount := bbndatagen.GenRandomByteArray(r, 16)
 
 	return &TestVaultData{
 		StakerKey:                   stakerPrivKey.PubKey(),
