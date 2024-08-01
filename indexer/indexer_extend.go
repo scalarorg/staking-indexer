@@ -61,6 +61,14 @@ func (si *StakingIndexer) blocksScalarEventLoop() {
 }
 
 // based on indexer.go - compatible with the scalar vault
+// processUnconfirmedInfoScalar processes information from given unconfirmed blocks
+// It follows the steps below:
+// 1. iterate all txs of each unconfirmed block to identify vault and ? transactions,
+// and calculate total unconfirmed tvl
+// 2. get the current confirmed tvl
+// 3. push unconfirmed info event to the queue
+// 4. record metrics
+// This method will not make any change to the system state.
 func (si *StakingIndexer) processUnconfirmedInfoScalar(unconfirmedBlocks []*types.IndexedBlock) error {
 	if len(unconfirmedBlocks) == 0 {
 		si.logger.Info("no unconfirmed blocks, skip processing unconfirmed info")
@@ -107,7 +115,7 @@ func (si *StakingIndexer) processUnconfirmedInfoScalar(unconfirmedBlocks []*type
 
 func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlocks []*types.IndexedBlock) (btcutil.Amount, error) {
 	tvl := btcutil.Amount(0)
-	unconfirmedStakingTxs := make(map[chainhash.Hash]*indexerstore.StoredVaultTransaction)
+	unconfirmedVaultTxs := make(map[chainhash.Hash]*indexerstore.StoredVaultTransaction)
 	for _, b := range unconfirmedBlocks {
 		params, err := si.getVersionedParams(uint64(b.Height))
 		if err != nil {
@@ -136,9 +144,9 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 				}
 
 				tvl += btcutil.Amount(vaultData.VaultOutput.Value)
-				// save the staking tx in memory for later identifying spending tx
+				// save the vault tx in memory for later identifying spending tx
 				vaultValue := uint64(vaultData.VaultOutput.Value)
-				unconfirmedStakingTxs[msgTx.TxHash()] = &indexerstore.StoredVaultTransaction{
+				unconfirmedVaultTxs[msgTx.TxHash()] = &indexerstore.StoredVaultTransaction{
 					Tx:                          msgTx,
 					StakingOutputIdx:            uint32(vaultData.VaultOutputIdx),
 					InclusionHeight:             uint64(b.Height),
@@ -151,7 +159,7 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 					MintingAmount:               vaultData.PayloadOpReturnData.Amount,
 				}
 
-				si.logger.Info("found an unconfirmed staking tx",
+				si.logger.Info("found an unconfirmed vault tx",
 					zap.String("tx_hash", msgTx.TxHash().String()),
 					zap.Uint64("value", vaultValue),
 					zap.Int32("height", b.Height))
@@ -159,12 +167,12 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 				continue
 			}
 
-			// 2. not a staking tx, check whether it spends a stored staking tx
+			// 2. not a vault tx, check whether it spends a stored vault tx
 			vaultTxs, _ := si.getSpentVaultTxs(msgTx)
 			if len(vaultTxs) == 0 {
-				// it does not spend a stored staking tx, check whether it spends
-				// an unconfirmed staking tx
-				vaultTxs, _ = getSpentFromVaultTxs(msgTx, unconfirmedStakingTxs)
+				// it does not spend a stored vault tx, check whether it spends
+				// an unconfirmed vault tx
+				vaultTxs, _ = getSpentFromVaultTxs(msgTx, unconfirmedVaultTxs)
 			}
 			for _, vaultTx := range vaultTxs {
 				// 3. is a spending tx, check whether it is a valid burning tx
@@ -193,21 +201,22 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 				if isBurning {
 					si.logger.Info("found an unconfirmed burning tx",
 						zap.String("tx_hash", msgTx.TxHash().String()),
-						zap.String("staking_tx_hash", vaultTx.Tx.TxHash().String()),
+						zap.String("vault_tx_hash", vaultTx.Tx.TxHash().String()),
 						zap.Uint64("value", vaultTx.StakingValue))
 
-					// only subtract the tvl if the staking tx is not overflow
+					// only subtract the tvl if the vault tx is not overflow
 					if !vaultTx.IsOverflow {
 						tvl -= btcutil.Amount(vaultTx.StakingValue)
 					}
 				} else {
+					// TODO SCALAR - update with babylon main branch
 					// TODO 1. Identify withdraw txs
 					// TODO 2. Decide whether to subtract tvl here
 					invalidTransactionsCounter.WithLabelValues("unconfirmed_unknown_transaction").Inc()
 
-					si.logger.Warn("found a tx that spends the staking tx but not an burning tx",
+					si.logger.Warn("found a tx that spends the vault tx but not an burning tx",
 						zap.String("tx_hash", msgTx.TxHash().String()),
-						zap.String("staking_tx_hash", vaultTx.Tx.TxHash().String()))
+						zap.String("vault_tx_hash", vaultTx.Tx.TxHash().String()))
 				}
 			}
 		}
@@ -216,6 +225,8 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 	return tvl, nil
 }
 
+// HandleConfirmedBlockScalar iterates through the tx set of a confirmed block and
+// parse the vault, burning, slashingOrLostKey and burnignWithoutDApp txs if there are any.
 func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) error {
 	params, err := si.getVersionedParams(uint64(b.Height))
 	if err != nil {
@@ -223,7 +234,7 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 	}
 	for _, tx := range b.Txs {
 		msgTx := tx.MsgTx()
-		// 1. try to parse staking tx
+		// 1. try to parse vault tx
 		vaultData, err := si.tryParseVaultTx(msgTx, params)
 		if err == nil {
 			if err := si.ProcessVaultTx(
@@ -234,8 +245,8 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 				return fmt.Errorf("failed to process the vault tx: %w", err)
 			}
 			// should not use *continue* here as a special case is
-			// the tx could be a staking tx as well as a withdrawal
-			// tx that spends the previous staking tx
+			// the tx could be a vault tx as well as a withdrawal
+			// tx that spends the previous vault tx
 
 		}
 
@@ -243,7 +254,7 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 		// vault tx, and handle it if so
 		vaultTxs, spendVaultInputIndexes := si.getSpentVaultTxs(msgTx)
 		for i, vaultTx := range vaultTxs {
-			// this is a spending tx from a previous staking tx, further process it
+			// this is a spending tx from a previous vault tx, further process it
 			// by checking whether it is unbonding or withdrawal
 			if err := si.handleSpendingVaultTransaction(
 				msgTx, vaultTx, spendVaultInputIndexes[i],
@@ -252,7 +263,7 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 			}
 		}
 
-		// 3. it's not a spending tx from a previous staking tx,
+		// 3. it's not a spending tx from a previous vault tx,
 		// check whether it spends a previous unbonding tx, and
 		// handle it if so
 		burningTxs, spendBurningInputIndexes := si.getSpentBurningTxs(msgTx)
@@ -279,7 +290,7 @@ func (si *StakingIndexer) handleSpendingBurningTransaction(
 	spendingInputIdx int,
 	height uint64,
 ) error {
-	// get the stored staking tx for later validation
+	// get the stored vault tx for later validation
 	storedVaultTx, err := si.GetVaultTxByHash(burningTx.VaultTxHash)
 	if err != nil {
 		// record metrics
@@ -486,7 +497,8 @@ func (si *StakingIndexer) ValidateWithdrawalTxFromBurning(
 	return nil
 }
 
-// ///////
+// getSpentVaultTxs find all the stored vault txs spent by the given tx.
+// It returns the found vault txs and the spending input index of the given tx
 func (si *StakingIndexer) getSpentVaultTxs(tx *wire.MsgTx) ([]*indexerstore.StoredVaultTransaction, []int) {
 	storedVaultTxs := make([]*indexerstore.StoredVaultTransaction, 0)
 	spendingInputIndexes := make([]int, 0)
@@ -497,7 +509,7 @@ func (si *StakingIndexer) getSpentVaultTxs(tx *wire.MsgTx) ([]*indexerstore.Stor
 			continue
 		}
 
-		// this ensures the spending tx spends the correct staking output
+		// this ensures the spending tx spends the correct vault output
 		if txIn.PreviousOutPoint.Index != vaultTx.StakingOutputIdx {
 			continue
 		}
@@ -509,6 +521,8 @@ func (si *StakingIndexer) getSpentVaultTxs(tx *wire.MsgTx) ([]*indexerstore.Stor
 	return storedVaultTxs, spendingInputIndexes
 }
 
+// getSpentVaultTxs find all the vault txs from the given ones spent by the given tx.
+// It returns the found vault txs and the spending input index of the given tx
 func getSpentFromVaultTxs(
 	tx *wire.MsgTx,
 	stakingTxs map[chainhash.Hash]*indexerstore.StoredVaultTransaction,
@@ -522,7 +536,7 @@ func getSpentFromVaultTxs(
 			continue
 		}
 
-		// this ensures the spending tx spends the correct staking output
+		// this ensures the spending tx spends the correct vault output
 		if txIn.PreviousOutPoint.Index != stakingTx.StakingOutputIdx {
 			continue
 		}
@@ -534,12 +548,14 @@ func getSpentFromVaultTxs(
 	return storedVaultTxs, spendingInputIndexes
 }
 
+// getSpentBurningTxs find all the stored burning txs spent by the given tx.
+// It returns the found burning txs and the spending input index of the given tx
 func (si *StakingIndexer) getSpentBurningTxs(tx *wire.MsgTx) ([]*indexerstore.StoredBurningTransaction, []int) {
 	storedBurningTxs := make([]*indexerstore.StoredBurningTransaction, 0)
 	spendingInputIndexes := make([]int, 0)
 	for i, txIn := range tx.TxIn {
-		maybeUnbondingTxHash := txIn.PreviousOutPoint.Hash
-		burningTx, err := si.GetBurningTxByHash(&maybeUnbondingTxHash)
+		maybeBurningTxHash := txIn.PreviousOutPoint.Hash
+		burningTx, err := si.GetBurningTxByHash(&maybeBurningTxHash)
 		if err != nil || burningTx == nil {
 			continue
 		}
@@ -551,13 +567,17 @@ func (si *StakingIndexer) getSpentBurningTxs(tx *wire.MsgTx) ([]*indexerstore.St
 	return storedBurningTxs, spendingInputIndexes
 }
 
+// IsValidBurningTx tries to identify a tx is a valid burning tx
+// It returns error when (1) it fails to verify the burning tx due
+// to invalid parameters, and (2) the tx spends the burning path
+// but is invalid
 func (si *StakingIndexer) IsValidBurningTx(tx *wire.MsgTx, vaultTx *indexerstore.StoredVaultTransaction, params *parser.ParsedVersionedGlobalParams) (bool, error) {
 	// 1. an unbonding tx must be a transfer tx
 	if err := btcstaking.IsTransferTx(tx); err != nil {
 		return false, nil
 	}
 
-	// 2. an unbonding tx must spend the staking output
+	// 2. an unbonding tx must spend the vault output
 	vaultTxHash := vaultTx.Tx.TxHash()
 	if !tx.TxIn[0].PreviousOutPoint.Hash.IsEqual(&vaultTxHash) {
 		return false, nil
@@ -622,7 +642,7 @@ func (si *StakingIndexer) IsValidBurningTx(tx *wire.MsgTx, vaultTx *indexerstore
 		&si.cfg.BTCNetParams,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to rebuid the burning info: %w", err)
+		return false, fmt.Errorf("failed to rebuild the burning info: %w", err)
 	}
 	if !bytes.Equal(tx.TxOut[0].PkScript, burningInfo.BurningOutput.PkScript) {
 		return false, fmt.Errorf("%w: the burning output is not expected", ErrInvalidBurningTx)
@@ -642,7 +662,7 @@ func (si *StakingIndexer) ProcessVaultTx(
 	params *parser.ParsedVersionedGlobalParams,
 ) error {
 	var (
-		// whether the staking tx is overflow
+		// whether the vault tx is overflow
 		isOverflow bool
 	)
 
@@ -652,7 +672,7 @@ func (si *StakingIndexer) ProcessVaultTx(
 		zap.Int64("value", vaultData.VaultOutput.Value),
 	)
 
-	// check whether the staking tx already exists in db
+	// check whether the vault tx already exists in db
 	// if so, get the isOverflow from the data in db
 	// otherwise, check it if the current tvl already reaches
 	// the cap
@@ -691,7 +711,7 @@ func (si *StakingIndexer) ProcessVaultTx(
 			zap.String("tx_hash", tx.TxHash().String()))
 	}
 
-	// add the staking transaction to the system state
+	// add the vault transaction to the system state
 	if err := si.addVaultTransaction(
 		height, timestamp, tx,
 		vaultData.OpReturnData.StakerPublicKey.PubKey,
@@ -709,6 +729,8 @@ func (si *StakingIndexer) ProcessVaultTx(
 	return nil
 }
 
+// addVaultTransaction pushes the vault event, saves it to the database
+// and records metrics
 func (si *StakingIndexer) addVaultTransaction(
 	height uint64,
 	timestamp time.Time,
@@ -753,7 +775,7 @@ func (si *StakingIndexer) addVaultTransaction(
 	si.logger.Info("saving the vault transaction",
 		zap.String("tx_hash", tx.TxHash().String()),
 	)
-	// save the staking tx in the db
+	// save the vault tx in the db
 	if err := si.is.AddVaultTransaction(
 		tx, stakingOutputIndex, height,
 		stakerPk, dAppPk,
@@ -864,7 +886,7 @@ func (si *StakingIndexer) processWithdrawVaultTx(tx *wire.MsgTx, vaultTxHash *ch
 func (si *StakingIndexer) tryParseVaultTx(tx *wire.MsgTx, params *parser.ParsedVersionedGlobalParams) (*btcvault.ParsedV0VaultTx, error) {
 	possible := btcvault.IsPossibleV0VaultTx(tx, params.Tag)
 	if !possible {
-		return nil, fmt.Errorf("not staking tx")
+		return nil, fmt.Errorf("not vault tx")
 	}
 	parsedData, err := btcvault.ParseV0VaultTx(
 		tx,
@@ -873,7 +895,7 @@ func (si *StakingIndexer) tryParseVaultTx(tx *wire.MsgTx, params *parser.ParsedV
 		params.CovenantQuorum,
 		&si.cfg.BTCNetParams)
 	if err != nil {
-		return nil, fmt.Errorf("not staking tx")
+		return nil, fmt.Errorf("not vault tx")
 	}
 
 	return parsedData, nil
