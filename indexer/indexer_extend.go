@@ -22,7 +22,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	btcvault "github.com/scalarorg/btc-vault"
+	"github.com/scalarorg/btc-vault/btcvault"
 
 	"go.uber.org/zap"
 )
