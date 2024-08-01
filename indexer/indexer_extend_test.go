@@ -7,13 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/babylonchain/babylon/btcstaking"
 	bbndatagen "github.com/babylonchain/babylon/testutil/datagen"
 	"github.com/babylonchain/networks/parameters/parser"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/wire"
-	btcvault "github.com/scalarorg/btc-vault"
+	"github.com/scalarorg/btc-vault/btcvault"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -469,11 +468,11 @@ func getParsedVaultData(data *datagen.TestVaultData, tx *wire.MsgTx, params *par
 		VaultOutputIdx:    0,
 		OpReturnOutput:    tx.TxOut[1],
 		OpReturnOutputIdx: 1,
-		OpReturnData: &btcstaking.V0OpReturnData{
+		OpReturnData: &btcvault.V0OpReturnData{
 			Tag:                       params.Tag,
 			Version:                   0,
-			StakerPublicKey:           &btcstaking.XonlyPubKey{PubKey: data.StakerKey},
-			FinalityProviderPublicKey: &btcstaking.XonlyPubKey{PubKey: data.FinalityProviderKey},
+			StakerPublicKey:           &btcvault.XonlyPubKey{PubKey: data.StakerKey},
+			FinalityProviderPublicKey: &btcvault.XonlyPubKey{PubKey: data.FinalityProviderKey},
 		},
 		PayloadOutput:    tx.TxOut[2],
 		PayloadOutputIdx: 2,
