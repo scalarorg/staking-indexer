@@ -4,7 +4,7 @@ go 1.22.3
 
 toolchain go1.22.4
 
-require github.com/scalarorg/btc-vault v0.0.5
+require github.com/scalarorg/btc-vault v0.1.2
 
 require github.com/scalarorg/staking-queue-client v0.3.2
 
