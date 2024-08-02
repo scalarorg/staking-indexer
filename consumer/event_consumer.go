@@ -16,5 +16,6 @@ type EventConsumer interface {
 	// SCALAR
 	PushVaultEvent(ev *client.ActiveVaultEvent) error
 	PushBurningEvent(ev *client.BurningVaultEvent) error
-	PushWithdrawVaultEvent(ev *client.WithdrawVaultEvent) error
+	PushSlashingOrLostKeyEvent(ev *client.SlashingOrLostKeyVaultEvent) error
+	PushBurnWithoutDAppEvent(ev *client.BurnWithoutDAppVaultEvent) error
 }

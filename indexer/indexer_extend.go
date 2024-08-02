@@ -27,6 +27,12 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	burningPathInfoType           int = 0
+	slashingOrLostKeyPathInfoType int = 1
+	burnWithoutDAppPathInfoType   int = 2
+)
+
 func (si *StakingIndexer) blocksScalarEventLoop() {
 	defer si.wg.Done()
 
@@ -175,49 +181,24 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 				vaultTxs, _ = getSpentFromVaultTxs(msgTx, unconfirmedVaultTxs)
 			}
 			for _, vaultTx := range vaultTxs {
-				// TODO SCALAR - update with babylon main branch
 				// 3. is a spending tx, check whether it is a valid burning tx
 				paramsFromVaultTxHeight, err := si.getVersionedParams(vaultTx.InclusionHeight)
 				if err != nil {
 					return 0, err
 				}
-				isBurning, err := si.IsValidBurningTx(msgTx, vaultTx, paramsFromVaultTxHeight)
-				if err != nil {
-					if errors.Is(err, ErrInvalidUnbondingTx) {
-						invalidTransactionsCounter.WithLabelValues("unconfirmed_burning_transactions").Inc()
-						si.logger.Warn("found an invalid burning tx",
-							zap.String("tx_hash", msgTx.TxHash().String()),
-							zap.Int32("height", b.Height),
-							zap.Bool("is_confirmed", false),
-							zap.Error(err),
-						)
+				isBurning, _ := si.IsValidSpendingTx(burningPathInfoType, msgTx, vaultTx, paramsFromVaultTxHeight)
+				isSlashingOrLostKey, _ := si.IsValidSpendingTx(slashingOrLostKeyPathInfoType, msgTx, vaultTx, paramsFromVaultTxHeight)
+				isBurnWithoutDApp, _ := si.IsValidSpendingTx(burnWithoutDAppPathInfoType, msgTx, vaultTx, paramsFromVaultTxHeight)
 
-						continue
-					}
-
-					// record metrics
-					failedVerifyingBurningTxsCounter.Inc()
-					return 0, fmt.Errorf("failed to validate unconfirmed burning tx: %w", err)
-				}
-				if isBurning {
-					si.logger.Info("found an unconfirmed burning tx",
+				if !isBurning && !isSlashingOrLostKey && !isBurnWithoutDApp {
+					invalidTransactionsCounter.WithLabelValues("unconfirmed_unknown_transaction").Inc()
+				} else {
+					si.logger.Warn("found a tx that spends the vault tx",
 						zap.String("tx_hash", msgTx.TxHash().String()),
-						zap.String("vault_tx_hash", vaultTx.Tx.TxHash().String()),
-						zap.Uint64("value", vaultTx.StakingValue))
-
-					// only subtract the tvl if the vault tx is not overflow
+						zap.String("vault_tx_hash", vaultTx.Tx.TxHash().String()))
 					if !vaultTx.IsOverflow {
 						tvl -= btcutil.Amount(vaultTx.StakingValue)
 					}
-				} else {
-					// TODO SCALAR - update with babylon main branch
-					// TODO 1. Identify withdraw txs
-					// TODO 2. Decide whether to subtract tvl here
-					invalidTransactionsCounter.WithLabelValues("unconfirmed_unknown_transaction").Inc()
-
-					si.logger.Warn("found a tx that spends the vault tx but not an burning tx",
-						zap.String("tx_hash", msgTx.TxHash().String()),
-						zap.String("vault_tx_hash", vaultTx.Tx.TxHash().String()))
 				}
 			}
 		}
@@ -259,19 +240,7 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 			// by checking whether it is unbonding or withdrawal
 			if err := si.handleSpendingVaultTransaction(
 				msgTx, vaultTx, spendVaultInputIndexes[i],
-				uint64(b.Height), b.Header.Timestamp); err != nil {
-				return err
-			}
-		}
-
-		// 3. it's not a spending tx from a previous vault tx,
-		// check whether it spends a previous unbonding tx, and
-		// handle it if so
-		burningTxs, spendBurningInputIndexes := si.getSpentBurningTxs(msgTx)
-		for i, burningTx := range burningTxs {
-			// this is a spending tx from the unbonding, validate it, and processes it
-			if err := si.handleSpendingBurningTransaction(
-				msgTx, burningTx, spendBurningInputIndexes[i], uint64(b.Height)); err != nil {
+				uint64(b.Height)); err != nil {
 				return err
 			}
 		}
@@ -285,60 +254,11 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 	return nil
 }
 
-func (si *StakingIndexer) handleSpendingBurningTransaction(
-	tx *wire.MsgTx,
-	burningTx *indexerstore.StoredBurningTransaction,
-	spendingInputIdx int,
-	height uint64,
-) error {
-	// get the stored vault tx for later validation
-	storedVaultTx, err := si.GetVaultTxByHash(burningTx.VaultTxHash)
-	if err != nil {
-		// record metrics
-		failedProcessingWithdrawTxsFromBurningCounter.Inc()
-
-		return err
-	}
-
-	paramsFromVaultTxHeight, err := si.getVersionedParams(storedVaultTx.InclusionHeight)
-	if err != nil {
-		return err
-	}
-
-	if err := si.ValidateWithdrawalTxFromBurning(tx, storedVaultTx, spendingInputIdx, paramsFromVaultTxHeight); err != nil {
-		if errors.Is(err, ErrInvalidWithdrawalTx) {
-			// TODO consider slashing transaction for phase-2
-			invalidTransactionsCounter.WithLabelValues("confirmed_withdraw_burning_transactions").Inc()
-			si.logger.Warn("found an invalid withdrawal tx from burning",
-				zap.String("tx_hash", tx.TxHash().String()),
-				zap.Uint64("height", height),
-				zap.Bool("is_confirmed", true),
-				zap.Error(err),
-			)
-
-			return nil
-		}
-
-		failedProcessingWithdrawTxsFromBurningCounter.Inc()
-		return err
-	}
-
-	burningTxHash := burningTx.Tx.TxHash()
-	if err := si.processWithdrawTx(tx, burningTx.VaultTxHash, &burningTxHash, height); err != nil {
-		// record metrics
-		failedProcessingWithdrawTxsFromBurningCounter.Inc()
-		return err
-	}
-
-	return nil
-}
-
 func (si *StakingIndexer) handleSpendingVaultTransaction(
 	tx *wire.MsgTx,
 	vaultTx *indexerstore.StoredVaultTransaction,
 	spendingInputIndex int,
 	height uint64,
-	timestamp time.Time,
 ) error {
 	vaultTxHash := vaultTx.Tx.TxHash()
 	paramsFromVaultTxHeight, err := si.getVersionedParams(vaultTx.InclusionHeight)
@@ -346,12 +266,12 @@ func (si *StakingIndexer) handleSpendingVaultTransaction(
 		return err
 	}
 
-	// check whether it is a valid burning tx
-	isBurning, err := si.IsValidBurningTx(tx, vaultTx, paramsFromVaultTxHeight)
+	typeOfSpend, err := si.ValidateSpendingTxFromVault(tx, vaultTx, spendingInputIndex, paramsFromVaultTxHeight)
+
 	if err != nil {
-		if errors.Is(err, ErrInvalidBurningTx) {
-			invalidTransactionsCounter.WithLabelValues("confirmed_burning_transactions").Inc()
-			si.logger.Warn("found an invalid burning tx",
+		if errors.Is(err, ErrInvalidSpendingTx) {
+			invalidTransactionsCounter.WithLabelValues("confirmed_spending_vault_transactions").Inc()
+			si.logger.Warn("found an invalid spending tx from vault",
 				zap.String("tx_hash", tx.TxHash().String()),
 				zap.Uint64("height", height),
 				zap.Bool("is_confirmed", true),
@@ -360,65 +280,32 @@ func (si *StakingIndexer) handleSpendingVaultTransaction(
 
 			return nil
 		}
-		// record metrics
-		failedVerifyingBurningTxsCounter.Inc()
+		failedProcessingSpendingTxsFromVaultCounter.Inc()
 		return err
 	}
 
-	if !isBurning {
-		// not an unbonding tx, so this is a slashingOrLostKey or burningWithourDApp tx from the vaultTx,
-		// validate it and process it
-		if err := si.ValidateWithdrawalTxFromVault(tx, vaultTx, spendingInputIndex, paramsFromVaultTxHeight); err != nil {
-			if errors.Is(err, ErrInvalidWithdrawalTx) {
-				invalidTransactionsCounter.WithLabelValues("confirmed_withdraw_vault_transactions").Inc()
-				si.logger.Warn("found an invalid withdrawal tx from vault",
-					zap.String("tx_hash", tx.TxHash().String()),
-					zap.Uint64("height", height),
-					zap.Bool("is_confirmed", true),
-					zap.Error(err),
-				)
-
-				return nil
-			}
-
-			failedProcessingWithdrawTxsFromVaultCounter.Inc()
-			return err
+	if err := si.processSpendingVaultTx(typeOfSpend, tx, &vaultTxHash, height); err != nil {
+		// record metrics
+		if typeOfSpend == burningPathInfoType {
+			failedProcessingBurningTxsFromVaultCounter.Inc()
+		} else if typeOfSpend == slashingOrLostKeyPathInfoType {
+			failedProcessingSlashingOrLostKeyTxsFromVaultCounter.Inc()
+		} else if typeOfSpend == burnWithoutDAppPathInfoType {
+			failedProcessingBurnWithoutDAppTxsFromVaultCounter.Inc()
 		}
-		if err := si.processWithdrawVaultTx(tx, &vaultTxHash, nil, height); err != nil {
-			// record metrics
-			failedProcessingWithdrawTxsFromVaultCounter.Inc()
 
-			return err
-		}
-		return nil
-	}
-
-	// 5. this is a valid burning tx, process it
-	if err := si.ProcessBurningTx(
-		tx, &vaultTxHash, height, timestamp,
-		paramsFromVaultTxHeight,
-	); err != nil {
-		if !errors.Is(err, indexerstore.ErrDuplicateTransaction) {
-			// record metrics
-			failedProcessingBurningTxsCounter.Inc()
-
-			return err
-		}
-		// we don't consider duplicate error critical as it can happen
-		// when the indexer restarts
-		si.logger.Warn("found a duplicate tx",
-			zap.String("tx_hash", tx.TxHash().String()))
+		return err
 	}
 
 	return nil
 }
 
-func (si *StakingIndexer) ValidateWithdrawalTxFromVault(
+func (si *StakingIndexer) ValidateSpendingTxFromVault(
 	tx *wire.MsgTx,
 	vaultTx *indexerstore.StoredVaultTransaction,
 	spendingInputIdx int,
 	params *parser.ParsedVersionedGlobalParams,
-) error {
+) (int, error) {
 	// re-build the time-lock path script and check whether the script from
 	// the witness matches
 	vaultInfo, err := btcvault.BuildVaultInfo(
@@ -430,16 +317,22 @@ func (si *StakingIndexer) ValidateWithdrawalTxFromVault(
 		&si.cfg.BTCNetParams,
 	)
 	if err != nil {
-		return fmt.Errorf("failed to rebuid the vault info: %w", err)
+		return -1, fmt.Errorf("failed to rebuid the vault info: %w", err)
 	}
+
+	burningPathInfo, err := vaultInfo.BurnPathSpendInfo()
+	if err != nil {
+		return -1, fmt.Errorf("failed to get the burning path spend info: %w", err)
+	}
+
 	slashingOrLostKeyPathInfo, err := vaultInfo.SlashingOrLostKeyPathSpendInfo()
 	if err != nil {
-		return fmt.Errorf("failed to get the slashing or lost key path spend info: %w", err)
+		return -1, fmt.Errorf("failed to get the slashing or lost key path spend info: %w", err)
 	}
 
 	burnWithoutDAppPathInfo, err := vaultInfo.BurnWithoutDAppPathSpendInfo()
 	if err != nil {
-		return fmt.Errorf("failed to get the burn without dapp path spend info: %w", err)
+		return -1, fmt.Errorf("failed to get the burn without dapp path spend info: %w", err)
 	}
 
 	witness := tx.TxIn[spendingInputIdx].Witness
@@ -449,53 +342,25 @@ func (si *StakingIndexer) ValidateWithdrawalTxFromVault(
 
 	scriptFromWitness := tx.TxIn[spendingInputIdx].Witness[len(tx.TxIn[spendingInputIdx].Witness)-2]
 
+	checkBurningPath := bytes.Equal(burningPathInfo.GetPkScriptPath(), scriptFromWitness)
 	checkSlashingOrLostKeyPath := bytes.Equal(slashingOrLostKeyPathInfo.GetPkScriptPath(), scriptFromWitness)
 	checkBurnWithoutDAppPath := bytes.Equal(burnWithoutDAppPathInfo.GetPkScriptPath(), scriptFromWitness)
 
-	if !checkSlashingOrLostKeyPath && !checkBurnWithoutDAppPath {
-		return fmt.Errorf("%w: the tx does not unlock the slashing or lost key path and burn without dapp path", ErrInvalidWithdrawalTx)
+	if !checkSlashingOrLostKeyPath && !checkBurnWithoutDAppPath && !checkBurningPath {
+		return -1, fmt.Errorf("%w: the tx does not unlock any spending path", ErrInvalidSpendingTx)
 	}
 
-	return nil
-}
-
-func (si *StakingIndexer) ValidateWithdrawalTxFromBurning(
-	tx *wire.MsgTx,
-	vaultTx *indexerstore.StoredVaultTransaction,
-	spendingInputIdx int,
-	params *parser.ParsedVersionedGlobalParams,
-) error {
-	// re-build the time-lock path script and check whether the script from
-	// the witness matches
-	expectedBurningOutputValue := btcutil.Amount(vaultTx.StakingValue) - params.UnbondingFee
-	burningInfo, err := btcvault.BuildBurningInfo(
-		vaultTx.StakerPk,
-		[]*btcec.PublicKey{vaultTx.DAppPk},
-		params.CovenantPks,
-		params.CovenantQuorum,
-		expectedBurningOutputValue,
-		&si.cfg.BTCNetParams,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to rebuid the burning info: %w", err)
-	}
-	burnWithoutDAppPathInfo, err := burningInfo.BurnWithoutDAppPathSpendInfo()
-	if err != nil {
-		return fmt.Errorf("failed to get the burning path spend info: %w", err)
+	// we sure that the tx spends the correct vault output
+	var typeOfSpend int
+	if checkBurningPath {
+		typeOfSpend = burningPathInfoType
+	} else if checkSlashingOrLostKeyPath {
+		typeOfSpend = slashingOrLostKeyPathInfoType
+	} else if checkBurnWithoutDAppPath {
+		typeOfSpend = burnWithoutDAppPathInfoType
 	}
 
-	witness := tx.TxIn[spendingInputIdx].Witness
-	if len(witness) < 2 {
-		panic(fmt.Errorf("spending tx should have at least 2 elements in witness, got %d", len(witness)))
-	}
-
-	scriptFromWitness := tx.TxIn[spendingInputIdx].Witness[len(tx.TxIn[spendingInputIdx].Witness)-2]
-
-	if !bytes.Equal(burnWithoutDAppPathInfo.GetPkScriptPath(), scriptFromWitness) {
-		return fmt.Errorf("%w: the tx does not unlock the burn without dApp path", ErrInvalidWithdrawalTx)
-	}
-
-	return nil
+	return typeOfSpend, nil
 }
 
 // getSpentVaultTxs find all the stored vault txs spent by the given tx.
@@ -549,36 +414,17 @@ func getSpentFromVaultTxs(
 	return storedVaultTxs, spendingInputIndexes
 }
 
-// getSpentBurningTxs find all the stored burning txs spent by the given tx.
-// It returns the found burning txs and the spending input index of the given tx
-func (si *StakingIndexer) getSpentBurningTxs(tx *wire.MsgTx) ([]*indexerstore.StoredBurningTransaction, []int) {
-	storedBurningTxs := make([]*indexerstore.StoredBurningTransaction, 0)
-	spendingInputIndexes := make([]int, 0)
-	for i, txIn := range tx.TxIn {
-		maybeBurningTxHash := txIn.PreviousOutPoint.Hash
-		burningTx, err := si.GetBurningTxByHash(&maybeBurningTxHash)
-		if err != nil || burningTx == nil {
-			continue
-		}
-
-		storedBurningTxs = append(storedBurningTxs, burningTx)
-		spendingInputIndexes = append(spendingInputIndexes, i)
-	}
-
-	return storedBurningTxs, spendingInputIndexes
-}
-
-// IsValidBurningTx tries to identify a tx is a valid burning tx
-// It returns error when (1) it fails to verify the burning tx due
-// to invalid parameters, and (2) the tx spends the burning path
+// IsValidSpendingTx tries to identify a tx is a valid spending tx
+// It returns error when (1) it fails to verify the spending tx due
+// to invalid parameters, and (2) the tx spends the spending path
 // but is invalid
-func (si *StakingIndexer) IsValidBurningTx(tx *wire.MsgTx, vaultTx *indexerstore.StoredVaultTransaction, params *parser.ParsedVersionedGlobalParams) (bool, error) {
-	// 1. an unbonding tx must be a transfer tx
+func (si *StakingIndexer) IsValidSpendingTx(typeOfSpend int, tx *wire.MsgTx, vaultTx *indexerstore.StoredVaultTransaction, params *parser.ParsedVersionedGlobalParams) (bool, error) {
+	// 1. an spending tx must be a transfer tx
 	if err := btcstaking.IsTransferTx(tx); err != nil {
 		return false, nil
 	}
 
-	// 2. an unbonding tx must spend the vault output
+	// 2. an spending tx must spend the vault output
 	vaultTxHash := vaultTx.Tx.TxHash()
 	if !tx.TxIn[0].PreviousOutPoint.Hash.IsEqual(&vaultTxHash) {
 		return false, nil
@@ -587,8 +433,12 @@ func (si *StakingIndexer) IsValidBurningTx(tx *wire.MsgTx, vaultTx *indexerstore
 		return false, nil
 	}
 
-	// 3. re-build the unbonding path script and check whether the script from
+	// 3. re-build the spending path script and check whether the script from
 	// the witness matches
+	// We have 3 path :
+	// + burning
+	// + slashingOrLostKey
+	// + burnWithoutDApp
 	vaultInfo, err := btcvault.BuildVaultInfo(
 		vaultTx.StakerPk,
 		[]*btcec.PublicKey{vaultTx.DAppPk},
@@ -600,10 +450,6 @@ func (si *StakingIndexer) IsValidBurningTx(tx *wire.MsgTx, vaultTx *indexerstore
 	if err != nil {
 		return false, fmt.Errorf("failed to rebuid the vault info: %w", err)
 	}
-	burningPathInfo, err := vaultInfo.BurnPathSpendInfo()
-	if err != nil {
-		return false, fmt.Errorf("failed to get the burning path spend info: %w", err)
-	}
 
 	witness := tx.TxIn[0].Witness
 	if len(witness) < 2 {
@@ -612,45 +458,58 @@ func (si *StakingIndexer) IsValidBurningTx(tx *wire.MsgTx, vaultTx *indexerstore
 
 	scriptFromWitness := tx.TxIn[0].Witness[len(tx.TxIn[0].Witness)-2]
 
-	if !bytes.Equal(burningPathInfo.GetPkScriptPath(), scriptFromWitness) {
+	var spendingPathInfo *btcvault.SpendInfo
+	if typeOfSpend == burningPathInfoType {
+		spendingPathInfo, err = vaultInfo.BurnPathSpendInfo()
+		if err != nil {
+			return false, fmt.Errorf("failed to get the burning path spend info: %w", err)
+		}
+	} else if typeOfSpend == slashingOrLostKeyPathInfoType {
+		spendingPathInfo, err = vaultInfo.SlashingOrLostKeyPathSpendInfo()
+		if err != nil {
+			return false, fmt.Errorf("failed to get the slashing or lost key path spend info: %w", err)
+		}
+	} else if typeOfSpend == burnWithoutDAppPathInfoType {
+		spendingPathInfo, err = vaultInfo.BurnWithoutDAppPathSpendInfo()
+		if err != nil {
+			return false, fmt.Errorf("failed to get the burn without dapp path spend info: %w", err)
+		}
+	}
+
+	if !bytes.Equal(spendingPathInfo.GetPkScriptPath(), scriptFromWitness) {
 		// not burning tx as it does not unlock the burning path
 		return false, nil
 	}
 
-	// 4. check whether the unbonding tx enables rbf has time lock
-	if tx.TxIn[0].Sequence != wire.MaxTxInSequenceNum {
-		return false, fmt.Errorf("%w: burning tx should not enable rbf", ErrInvalidBurningTx)
-	}
+	// 4. check whether the script of an spending tx output is expected
+	// by re-building spending output from params
 
-	if tx.LockTime != 0 {
-		return false, fmt.Errorf("%w: burning tx should not set lock time", ErrInvalidBurningTx)
-	}
-
-	// 5. check whether the script of an unbonding tx output is expected
-	// by re-building unbonding output from params
-	vaultValue := btcutil.Amount(vaultTx.Tx.TxOut[vaultTx.StakingOutputIdx].Value)
-	expectedBurningOutputValue := vaultValue - params.UnbondingFee
-	if expectedBurningOutputValue <= 0 {
-		return false, fmt.Errorf("%w: vault output value is too low, got %v, vault fee: %v",
-			ErrInvalidBurningTx, vaultValue, params.UnbondingFee)
-	}
-	burningInfo, err := btcvault.BuildBurningInfo(
+	spendingInfo, err := btcvault.BuildSpendingInfo(
+		typeOfSpend,
 		vaultTx.StakerPk,
 		[]*btcec.PublicKey{vaultTx.DAppPk},
 		params.CovenantPks,
 		params.CovenantQuorum,
-		expectedBurningOutputValue,
+		btcutil.Amount(tx.TxOut[0].Value),
 		&si.cfg.BTCNetParams,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to rebuild the burning info: %w", err)
+		return false, fmt.Errorf("failed to rebuild the spending info: %w", err)
 	}
-	if !bytes.Equal(tx.TxOut[0].PkScript, burningInfo.BurningOutput.PkScript) {
-		return false, fmt.Errorf("%w: the burning output is not expected", ErrInvalidBurningTx)
+	if !bytes.Equal(tx.TxOut[0].PkScript, spendingInfo.Output.PkScript) {
+		var Err error
+		if typeOfSpend == burningPathInfoType {
+			Err = ErrInvalidBurningTx
+		} else if typeOfSpend == slashingOrLostKeyPathInfoType {
+			Err = ErrInvalidSlashingOrLostKeyTx
+		} else if typeOfSpend == burnWithoutDAppPathInfoType {
+			Err = ErrInvalidBurnWithoutDAppTx
+		}
+		return false, fmt.Errorf("%w: the spending public key script is not expected", Err)
 	}
-	if tx.TxOut[0].Value != burningInfo.BurningOutput.Value {
-		return false, fmt.Errorf("%w: the burning output value %d is not expected %d",
-			ErrInvalidBurningTx, tx.TxOut[0].Value, burningInfo.BurningOutput.Value)
+	if tx.TxOut[0].Value != spendingInfo.Output.Value {
+		return false, fmt.Errorf("%w: the spending value %d is not expected %d",
+			ErrInvalidBurningTx, tx.TxOut[0].Value, spendingInfo.Output.Value)
 	}
 
 	return true, nil
@@ -799,86 +658,47 @@ func (si *StakingIndexer) addVaultTransaction(
 	return nil
 }
 
-func (si *StakingIndexer) ProcessBurningTx(
-	tx *wire.MsgTx,
-	vaultTxHash *chainhash.Hash,
-	height uint64, timestamp time.Time,
-	params *parser.ParsedVersionedGlobalParams,
-) error {
-	si.logger.Info("found an burning tx",
-		zap.Uint64("height", height),
-		zap.String("tx_hash", tx.TxHash().String()),
-		zap.String("staking_tx_hash", vaultTxHash.String()),
-	)
-
-	burningTxHex, err := getTxHex(tx)
-	if err != nil {
-		return err
-	}
-
-	burningTxHash := tx.TxHash()
-	burningEvent := queuecli.NewBurningVaultEvent(
-		burningTxHash.String(),
-		height,
-		timestamp.Unix(),
-		// valid burning tx always has one output
-		0,
-		burningTxHex,
-		burningTxHash.String(),
-	)
-
-	if err := si.consumer.PushBurningEvent(&burningEvent); err != nil {
-		return fmt.Errorf("failed to push the burning event to the queue: %w", err)
-	}
-
-	si.logger.Info("saving the burning tx",
-		zap.String("tx_hash", burningTxHash.String()))
-
-	if err := si.is.AddBurningTransaction(
-		tx,
-		vaultTxHash,
-	); err != nil && !errors.Is(err, indexerstore.ErrDuplicateTransaction) {
-		return fmt.Errorf("failed to add the burning tx to store: %w", err)
-	}
-
-	si.logger.Info("successfully saved the burning tx",
-		zap.String("tx_hash", tx.TxHash().String()))
-
-	// record metrics
-	totalBurningTxs.Inc()
-	lastFoundBurningTxHeight.Set(float64(height))
-
-	return nil
-}
-
-func (si *StakingIndexer) processWithdrawVaultTx(tx *wire.MsgTx, vaultTxHash *chainhash.Hash, burningTxHash *chainhash.Hash, height uint64) error {
+func (si *StakingIndexer) processSpendingVaultTx(typeOfSpend int, tx *wire.MsgTx, vaultTxHash *chainhash.Hash, height uint64) error {
 	txHashHex := tx.TxHash().String()
-	if burningTxHash == nil {
-		si.logger.Info("found a withdraw tx from vault",
+	if typeOfSpend == burningPathInfoType {
+		si.logger.Info("found a spending tx from vault",
 			zap.String("tx_hash", txHashHex),
 			zap.String("vault_tx_hash", vaultTxHash.String()),
 		)
-	} else {
-		si.logger.Info("found a withdraw tx from burning",
+		burningEvent := queuecli.NewBurningVaultEvent(vaultTxHash.String())
+		if err := si.consumer.PushBurningEvent(&burningEvent); err != nil {
+			return fmt.Errorf("failed to push the burning event to the consumer: %w", err)
+		}
+		// record metrics
+		totalBurningTxsFromVault.Inc()
+		lastFoundBurningTxFromVaultHeight.Set(float64(height))
+
+	} else if typeOfSpend == slashingOrLostKeyPathInfoType {
+		si.logger.Info("found a slashing or lost key tx from vault",
 			zap.String("tx_hash", txHashHex),
 			zap.String("vault_tx_hash", vaultTxHash.String()),
-			zap.String("unbonding_tx_hash", burningTxHash.String()),
 		)
-	}
+		slashingOrLostKeyEvent := queuecli.NewSlashingOrLostKeyVaultEvent(vaultTxHash.String())
+		if err := si.consumer.PushSlashingOrLostKeyEvent(&slashingOrLostKeyEvent); err != nil {
+			return fmt.Errorf("failed to push the slashing or lost key event to the consumer: %w", err)
+		}
 
-	withdrawEvent := queuecli.NewWithdrawVaultEvent(vaultTxHash.String())
+		// record metrics
+		totalSlashingOrLostKeyTxsFromVault.Inc()
+		lastFoundSlashingOrLostKeyTxFromVaultHeight.Set(float64(height))
 
-	if err := si.consumer.PushWithdrawVaultEvent(&withdrawEvent); err != nil {
-		return fmt.Errorf("failed to push the withdraw event to the consumer: %w", err)
-	}
-
-	// record metrics
-	if burningTxHash == nil {
-		totalWithdrawTxsFromVault.Inc()
-		lastFoundWithdrawTxFromVaultHeight.Set(float64(height))
-	} else {
-		totalWithdrawTxsFromBurning.Inc()
-		lastFoundWithdrawTxFromBurningHeight.Set(float64(height))
+	} else if typeOfSpend == burnWithoutDAppPathInfoType {
+		si.logger.Info("found a burn without dapp tx from vault",
+			zap.String("tx_hash", txHashHex),
+			zap.String("vault_tx_hash", vaultTxHash.String()),
+		)
+		burnWithoutDAppEvent := queuecli.NewBurnWithoutDAppVaultEvent(vaultTxHash.String())
+		if err := si.consumer.PushBurnWithoutDAppEvent(&burnWithoutDAppEvent); err != nil {
+			return fmt.Errorf("failed to push the burn without dapp event to the consumer: %w", err)
+		}
+		// record metrics
+		totalBurnWithoutDAppTxsFromVault.Inc()
+		lastFoundBurnWithoutDAppTxFromVaultHeight.Set(float64(height))
 	}
 
 	return nil

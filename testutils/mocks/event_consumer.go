@@ -147,16 +147,30 @@ func (mr *MockEventConsumerMockRecorder) PushBurningEvent(ev interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PushBurningEvent", reflect.TypeOf((*MockEventConsumer)(nil).PushBurningEvent), ev)
 }
 
-// PushWithdrawEvent mocks base method.
-func (m *MockEventConsumer) PushWithdrawVaultEvent(ev *client.WithdrawVaultEvent) error {
+// PushSlashingOrLostKeyEvent mocks base method.
+func (m *MockEventConsumer) PushSlashingOrLostKeyEvent(ev *client.SlashingOrLostKeyVaultEvent) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PushWithdrawVaultEvent", ev)
+	ret := m.ctrl.Call(m, "PushSlashingOrLostKeyEvent", ev)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PushWithdrawEvent indicates an expected call of PushWithdrawEvent.
-func (mr *MockEventConsumerMockRecorder) PushWithdrawVaultEvent(ev interface{}) *gomock.Call {
+func (mr *MockEventConsumerMockRecorder) PushSlashingOrLostKeyEvent(ev interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PushWithdrawVaultEvent", reflect.TypeOf((*MockEventConsumer)(nil).PushWithdrawVaultEvent), ev)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PushSlashingOrLostKeyEvent", reflect.TypeOf((*MockEventConsumer)(nil).PushSlashingOrLostKeyEvent), ev)
+}
+
+// PushBurnWithoutDAppEvent mocks base method.
+func (m *MockEventConsumer) PushBurnWithoutDAppEvent(ev *client.BurnWithoutDAppVaultEvent) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PushBurnWithoutDAppEvent", ev)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PushBurnWithoutDAppEvent indicates an expected call of PushBurnWithoutDAppEvent.
+func (mr *MockEventConsumerMockRecorder) PushBurnWithoutDAppEvent(ev interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PushBurnWithoutDAppEvent", reflect.TypeOf((*MockEventConsumer)(nil).PushBurnWithoutDAppEvent), ev)
 }
