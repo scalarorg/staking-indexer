@@ -178,10 +178,11 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 			if len(vaultTxs) == 0 {
 				// it does not spend a stored vault tx, check whether it spends
 				// an unconfirmed vault tx
+				// check it by compare the outpoint of previous tx with the tx hash of the unconfirmed vault tx
 				vaultTxs, _ = getSpentFromVaultTxs(msgTx, unconfirmedVaultTxs)
 			}
 			for _, vaultTx := range vaultTxs {
-				// 3. is a spending tx, check whether it is a valid burning tx
+				// 3. is a spending tx, check whether it is a valid spending tx
 				paramsFromVaultTxHeight, err := si.getVersionedParams(vaultTx.InclusionHeight)
 				if err != nil {
 					return 0, err
@@ -479,38 +480,6 @@ func (si *StakingIndexer) IsValidSpendingTx(typeOfSpend int, tx *wire.MsgTx, vau
 	if !bytes.Equal(spendingPathInfo.GetPkScriptPath(), scriptFromWitness) {
 		// not burning tx as it does not unlock the burning path
 		return false, nil
-	}
-
-	// 4. check whether the script of an spending tx output is expected
-	// by re-building spending output from params
-
-	spendingInfo, err := btcvault.BuildSpendingInfo(
-		typeOfSpend,
-		vaultTx.StakerPk,
-		[]*btcec.PublicKey{vaultTx.DAppPk},
-		params.CovenantPks,
-		params.CovenantQuorum,
-		btcutil.Amount(tx.TxOut[0].Value),
-		&si.cfg.BTCNetParams,
-	)
-	if err != nil {
-		return false, fmt.Errorf("failed to rebuild the spending info: %w", err)
-	}
-	// TODO_SCALAR: CHECK THIS UNCONFIRMED SPENDING TXS
-	if !bytes.Equal(tx.TxOut[0].PkScript, spendingInfo.Output.PkScript) {
-		var Err error
-		if typeOfSpend == burningPathInfoType {
-			Err = ErrInvalidBurningTx
-		} else if typeOfSpend == slashingOrLostKeyPathInfoType {
-			Err = ErrInvalidSlashingOrLostKeyTx
-		} else if typeOfSpend == burnWithoutDAppPathInfoType {
-			Err = ErrInvalidBurnWithoutDAppTx
-		}
-		return false, fmt.Errorf("%w: the spending public key script is not expected", Err)
-	}
-	if tx.TxOut[0].Value != spendingInfo.Output.Value {
-		return false, fmt.Errorf("%w: the spending value %d is not expected %d",
-			ErrInvalidBurningTx, tx.TxOut[0].Value, spendingInfo.Output.Value)
 	}
 
 	return true, nil
