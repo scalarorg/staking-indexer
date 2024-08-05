@@ -496,6 +496,7 @@ func (si *StakingIndexer) IsValidSpendingTx(typeOfSpend int, tx *wire.MsgTx, vau
 	if err != nil {
 		return false, fmt.Errorf("failed to rebuild the spending info: %w", err)
 	}
+	// TODO_SCALAR: CHECK THIS UNCONFIRMED SPENDING TXS
 	if !bytes.Equal(tx.TxOut[0].PkScript, spendingInfo.Output.PkScript) {
 		var Err error
 		if typeOfSpend == burningPathInfoType {
