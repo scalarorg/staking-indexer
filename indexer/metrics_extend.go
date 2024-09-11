@@ -14,24 +14,24 @@ var (
 		},
 	)
 
-	lastFoundBurningTxHeight = promauto.NewGauge(
+	lastFoundBurningTxFromVaultHeight = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "si_last_found_burning_tx_height",
-			Help: "The inclusion height of the last found burning transaction",
+			Name: "si_last_found_burning_from_vault_height",
+			Help: "The inclusion height of the last found burning transaction spending a previous vault transaction ",
 		},
 	)
 
-	lastFoundWithdrawTxFromVaultHeight = promauto.NewGauge(
+	lastFoundSlashingOrLostKeyTxFromVaultHeight = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "si_last_found_withdraw_tx_from_vault_height",
-			Help: "The inclusion height of the last found withdrawal transaction spending a previous vault transaction ",
+			Name: "si_last_found_slashing_or_lost_key_from_vault_height",
+			Help: "The inclusion height of the last found slashing or lost key transaction spending a previous vault transaction",
 		},
 	)
 
-	lastFoundWithdrawTxFromBurningHeight = promauto.NewGauge(
+	lastFoundBurnWithoutDAppTxFromVaultHeight = promauto.NewGauge(
 		prometheus.GaugeOpts{
-			Name: "si_last_found_withdraw_tx_from_burning_height",
-			Help: "The inclusion height of the last found withdrawal transaction spending a previous burning transaction",
+			Name: "si_last_found_burn_without_dapp_from_vault_height",
+			Help: "The inclusion height of the last found burn without dApp transaction spending a previous vault transaction",
 		},
 	)
 
@@ -45,24 +45,24 @@ var (
 		},
 	)
 
-	totalBurningTxs = promauto.NewCounter(
+	totalBurningTxsFromVault = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "si_total_burning_txs",
 			Help: "Total number of burning transactions",
 		},
 	)
 
-	totalWithdrawTxsFromVault = promauto.NewCounter(
+	totalSlashingOrLostKeyTxsFromVault = promauto.NewCounter(
 		prometheus.CounterOpts{
-			Name: "si_total_withdraw_txs_from_vault",
-			Help: "Total number of withdrawal transactions from the vault path",
+			Name: "si_total_slashing_or_lost_key_txs",
+			Help: "Total number of slashing or lost key transactions",
 		},
 	)
 
-	totalWithdrawTxsFromBurning = promauto.NewCounter(
+	totalBurnWithoutDAppTxsFromVault = promauto.NewCounter(
 		prometheus.CounterOpts{
-			Name: "si_total_withdraw_txs_from_burning",
-			Help: "Total number of withdrawal transactions from the burning path",
+			Name: "si_total_burn_without_dapp_txs",
+			Help: "Total number of burn without dApp transactions",
 		},
 	)
 
@@ -75,31 +75,31 @@ var (
 		},
 	)
 
-	failedVerifyingBurningTxsCounter = promauto.NewCounter(
+	failedProcessingSpendingTxsFromVaultCounter = promauto.NewCounter(
 		prometheus.CounterOpts{
-			Name: "si_failed_checking_burning_txs_counter",
-			Help: "Total number of failures when verifying burning txs ",
+			Name: "si_failed_processing_spending_txs_from_vault_counter",
+			Help: "Total number of failures when processing valid spending transactions from vault ",
 		},
 	)
 
-	failedProcessingBurningTxsCounter = promauto.NewCounter(
+	failedProcessingBurningTxsFromVaultCounter = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "si_failed_processing_burning_txs_counter",
 			Help: "Total number of failures when processing valid burning transactions",
 		},
 	)
 
-	failedProcessingWithdrawTxsFromVaultCounter = promauto.NewCounter(
+	failedProcessingSlashingOrLostKeyTxsFromVaultCounter = promauto.NewCounter(
 		prometheus.CounterOpts{
-			Name: "si_failed_processing_withdraw_txs_from_vault_counter",
-			Help: "Total number of failures when processing valid withdrawal transactions from vault ",
+			Name: "si_failed_processing_slashing_or_lost_key_txs_counter",
+			Help: "Total number of failures when processing valid slashing or lost key transactions",
 		},
 	)
 
-	failedProcessingWithdrawTxsFromBurningCounter = promauto.NewCounter(
+	failedProcessingBurnWithoutDAppTxsFromVaultCounter = promauto.NewCounter(
 		prometheus.CounterOpts{
-			Name: "si_failed_processing_withdraw_txs_from_burning_counter",
-			Help: "Total number of failures when processing valid withdrawal transactions from burning",
+			Name: "si_failed_processing_burn_without_dapp_txs_counter",
+			Help: "Total number of failures when processing valid burn without dApp transactions",
 		},
 	)
 )

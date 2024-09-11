@@ -605,7 +605,8 @@ func NewMockedConsumer(t *testing.T) *mocks.MockEventConsumer {
 	// SCALAR
 	mockedConsumer.EXPECT().PushVaultEvent(gomock.Any()).Return(nil).AnyTimes()
 	mockedConsumer.EXPECT().PushBurningEvent(gomock.Any()).Return(nil).AnyTimes()
-	mockedConsumer.EXPECT().PushWithdrawVaultEvent(gomock.Any()).Return(nil).AnyTimes()
+	mockedConsumer.EXPECT().PushSlashingOrLostKeyEvent(gomock.Any()).Return(nil).AnyTimes()
+	mockedConsumer.EXPECT().PushBurnWithoutDAppEvent(gomock.Any()).Return(nil).AnyTimes()
 	// SCALAR
 	mockedConsumer.EXPECT().Start().Return(nil).AnyTimes()
 	mockedConsumer.EXPECT().Stop().Return(nil).AnyTimes()
