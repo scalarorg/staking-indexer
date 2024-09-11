@@ -123,6 +123,7 @@ func (cfg *Config) Validate() error {
 	// Multiple networks can't be selected simultaneously.  Count number of
 	// network flags passed; assign active network params
 	// while we're at it.
+	fmt.Printf("Bitcoin network %s\n", cfg.BitcoinNetwork)
 	switch cfg.BitcoinNetwork {
 	case "mainnet":
 		cfg.BTCNetParams = chaincfg.MainNetParams

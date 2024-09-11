@@ -130,7 +130,10 @@ func (si *StakingIndexer) CalculateTvlInUnconfirmedBlocksScalar(unconfirmedBlock
 
 		for _, tx := range b.Txs {
 			msgTx := tx.MsgTx()
-
+			if len(msgTx.TxOut) < 4 {
+				// Vault tx must have at least 4 outputs
+				continue
+			}
 			// 1. try to parse vault tx
 			vaultData, err := si.tryParseVaultTx(msgTx, params)
 			if err == nil {
@@ -231,6 +234,8 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 			// the tx could be a vault tx as well as a withdrawal
 			// tx that spends the previous vault tx
 
+		} else {
+			si.logger.Error("failed to parse the vault tx", zap.Error(err))
 		}
 
 		// 2. not a vault tx, check whether it is a spending tx from a previous
@@ -675,10 +680,39 @@ func (si *StakingIndexer) processSpendingVaultTx(typeOfSpend int, tx *wire.MsgTx
 }
 
 func (si *StakingIndexer) tryParseVaultTx(tx *wire.MsgTx, params *parser.ParsedVersionedGlobalParams) (*btcvault.ParsedV0VaultTx, error) {
+	if len(tx.TxOut) > 2 {
+		si.logger.Debug("TxOuput",
+			zap.Int("First output len", len(tx.TxOut[1].PkScript)),
+			zap.Int("Second output len", len(tx.TxOut[2].PkScript)))
+	}
 	possible := btcvault.IsPossibleV0VaultTx(tx, params.Tag)
 	if !possible {
-		return nil, fmt.Errorf("not vault tx")
+		return nil, fmt.Errorf("Validate vault tx failed")
 	}
+	// opReturnData, opReturnOutputIdx, err := tryToGetOpReturnDataFromOutputs(tx.TxOut)
+	opReturnData, err := btcvault.NewV0OpReturnDataFromTxOutput(tx.TxOut[1])
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse v0 op return staking transaction: %w", err)
+	}
+	if opReturnData == nil {
+		return nil, fmt.Errorf("transaction does not have expected v0 op return output")
+	}
+	// payloadOpReturnData, err := btcvault.NewPayloadOpReturnDataFromTxOutput(tx.TxOut[2])
+	// if err != nil {
+	// 	return nil, fmt.Errorf("cannot parse payload op return data: %w", err)
+	// }
+	vaultInfo, err := btcvault.BuildVaultInfo(
+		opReturnData.StakerPublicKey.PubKey,
+		[]*btcec.PublicKey{opReturnData.FinalityProviderPublicKey.PubKey},
+		params.CovenantPks,
+		params.CovenantQuorum,
+		// we can pass 0 here, as staking amount is not used when creating taproot address
+		0,
+		&si.cfg.BTCNetParams,
+	)
+	// vaultHex := hex.EncodeToString(vaultInfo.VaultOutput.PkScript)
+	// firstOutHex := hex.EncodeToString(tx.TxOut[0].PkScript)
+	si.logger.Debug("VaultInfo", zap.Binary("VaultOutput", vaultInfo.VaultOutput.PkScript), zap.Binary("FirstOutput", tx.TxOut[0].PkScript))
 	parsedData, err := btcvault.ParseV0VaultTx(
 		tx,
 		params.Tag,
@@ -686,9 +720,8 @@ func (si *StakingIndexer) tryParseVaultTx(tx *wire.MsgTx, params *parser.ParsedV
 		params.CovenantQuorum,
 		&si.cfg.BTCNetParams)
 	if err != nil {
-		return nil, fmt.Errorf("not vault tx")
+		return nil, err
 	}
-
 	return parsedData, nil
 }
 
