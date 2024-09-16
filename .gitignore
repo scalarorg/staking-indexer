@@ -35,3 +35,6 @@ rabbitmq_data/
 
 /*/go.mod
 /*/go.sum
+
+.sid
+global-params.json
