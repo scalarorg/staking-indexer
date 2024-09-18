@@ -9,8 +9,8 @@ ARG VERSION
 ARG BUILD_TAGS="muslc"
 
 RUN apk add --no-cache --update openssh git make build-base linux-headers libc-dev \
-                                pkgconfig zeromq-dev musl-dev alpine-sdk libsodium-dev \
-                                libzmq-static libsodium-static gcc
+    pkgconfig zeromq-dev musl-dev alpine-sdk libsodium-dev \
+    libzmq-static libsodium-static gcc
 
 # Build
 WORKDIR /go/src/github.com/scalarorg/staking-indexer
@@ -21,7 +21,7 @@ RUN go mod download
 COPY ./ /go/src/github.com/scalarorg/staking-indexer/
 # If version is set, then checkout this version
 RUN if [ -n "${VERSION}" ]; then \
-        git checkout -f ${VERSION}; \
+    git checkout -f ${VERSION}; \
     fi
 
 RUN CGO_LDFLAGS="$CGO_LDFLAGS -lstdc++ -lm -lsodium" \
@@ -42,3 +42,4 @@ COPY --from=builder /go/src/github.com/scalarorg/staking-indexer/build/sid /bin/
 WORKDIR /home/staking-indexer
 RUN chown -R staking-indexer /home/staking-indexer
 USER staking-indexer
+RUN mkdir -p /home/staking-indexer/.sid
