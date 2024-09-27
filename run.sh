@@ -17,7 +17,7 @@ local() {
     go run cmd/sid/main.go start --start-height ${BTC_START_HEIGHT} --home .sid --params-path ./global-params.json
 }
 
-debug_compose() {
+dev() {
     echo "Starting staking-indexer in debug mode"
     if [ -n "$ENV" ]; then
         echo "ENV is set to $ENV"
@@ -31,7 +31,7 @@ debug_compose() {
 
     mkdir .sid
 
-    cp ../config/indexer-${ENV}.conf .sid/sid.conf
+    cp ../config/staking-indexer/${ENV}/sid.conf .sid/sid.conf
     # cp ../config/indexer-global-params-${ENV}.json global-params.json
 
     # find bitcoind:18332 in .sid/sid.conf and replace with localhost:18332

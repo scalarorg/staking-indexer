@@ -223,6 +223,8 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 		// 1. try to parse vault tx
 		vaultData, err := si.tryParseVaultTx(msgTx, params)
 		if err == nil {
+			si.logger.Info("[handleConfirmedBlock] found a vault tx", zap.Any("vaultData", vaultData))
+
 			if err := si.ProcessVaultTx(
 				msgTx, vaultData, uint64(b.Height), b.Header.Timestamp, params,
 			); err != nil {
@@ -235,15 +237,19 @@ func (si *StakingIndexer) HandleConfirmedBlockScalar(b *types.IndexedBlock) erro
 			// tx that spends the previous vault tx
 
 		} else {
-			si.logger.Error("failed to parse the vault tx", zap.Error(err))
+			si.logger.Warn("No vault tx founded", zap.Error(err))
 		}
 
 		// 2. not a vault tx, check whether it is a spending tx from a previous
 		// vault tx, and handle it if so
 		vaultTxs, spendVaultInputIndexes := si.getSpentVaultTxs(msgTx)
+		if len(vaultTxs) > 0 {
+			si.logger.Info("[handleConfirmedBlock] found a spending tx from vault", zap.Any("vaultTxs", vaultTxs), zap.Any("spendVaultInputIndexes", spendVaultInputIndexes))
+		}
 		for i, vaultTx := range vaultTxs {
 			// this is a spending tx from a previous vault tx, further process it
 			// by checking whether it is unbonding or withdrawal
+			si.logger.Info("found a spending tx from vault", zap.Any("vaultTx", vaultTx), zap.Any("spendVaultInputIndexes", spendVaultInputIndexes))
 			if err := si.handleSpendingVaultTransaction(
 				msgTx, vaultTx, spendVaultInputIndexes[i],
 				uint64(b.Height)); err != nil {
@@ -687,7 +693,7 @@ func (si *StakingIndexer) tryParseVaultTx(tx *wire.MsgTx, params *parser.ParsedV
 	}
 	possible := btcvault.IsPossibleV0VaultTx(tx, params.Tag)
 	if !possible {
-		return nil, fmt.Errorf("Validate vault tx failed")
+		return nil, fmt.Errorf("validate vault tx failed")
 	}
 	// opReturnData, opReturnOutputIdx, err := tryToGetOpReturnDataFromOutputs(tx.TxOut)
 	opReturnData, err := btcvault.NewV0OpReturnDataFromTxOutput(tx.TxOut[1])
