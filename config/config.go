@@ -2,14 +2,15 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/jessevdk/go-flags"
-
+	"github.com/joho/godotenv"
 	// "github.com/babylonchain/staking-indexer/utils"
-	"github.com/scalarorg/staking-indexer/utils"
 )
 
 const (
@@ -30,7 +31,6 @@ var (
 	DefaultParamsPath = ParamsFile(DefaultHomeDir)
 )
 
-// Config is the main config for the fpd cli command
 type Config struct {
 	LogLevel       string         `long:"loglevel" description:"Logging level for all subsystems" choice:"trace" choice:"debug" choice:"info" choice:"warn" choice:"error" choice:"fatal"`
 	BitcoinNetwork string         `long:"bitcoinnetwork" description:"Bitcoin network to run on" choice:"mainnet" choice:"regtest" choice:"testnet" choice:"simnet" choice:"signet"`
@@ -83,29 +83,107 @@ func DataDir(homePath string) string {
 	return filepath.Join(homePath, defaultDataDirname)
 }
 
-// LoadConfig initializes and parses the config using a config file and command
-// line options.
-//
-// The configuration proceeds as follows:
-//  1. Start with a default config with sane settings
-//  2. Pre-parse the command line to check for an alternative config file
-//  3. Load configuration file overwriting defaults with any specified options
-//  4. Parse CLI options and overwrite/add any specified options
-func LoadConfig(homePath string) (*Config, error) {
-	// The home directory is required to have a configuration file with a specific name
-	// under it.
-	cfgFile := ConfigFile(homePath)
-	if !utils.FileExists(cfgFile) {
-		return nil, fmt.Errorf("specified config file does "+
-			"not exist in %s", cfgFile)
+func LoadConfig() (*Config, error) {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("[WARN] No .env file found, just alert for development")
 	}
 
-	// Next, load any additional configuration options from the file.
 	var cfg Config
-	fileParser := flags.NewParser(&cfg, flags.Default)
-	err := flags.NewIniParser(fileParser).ParseFile(cfgFile)
+
+	cfg.LogLevel = os.Getenv("LOG_LEVEL")
+	cfg.BitcoinNetwork = os.Getenv("BITCOIN_NETWORK")
+
+	maxPeer, err := strconv.Atoi(os.Getenv("PRUNED_NODE_MAX_PEERS"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse pruned node max peers: %w", err)
+	}
+
+	blockInterval := os.Getenv("BLOCK_POLLING_INTERVAL")
+	blockIntervalDuration, err := time.ParseDuration(blockInterval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse block polling interval: %w", err)
+	}
+	txPollingInterval := os.Getenv("TX_POLLING_INTERVAL")
+	txPollingIntervalDuration, err := time.ParseDuration(txPollingInterval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse tx polling interval: %w", err)
+	}
+
+	cacheSize := os.Getenv("BLOCK_CACHE_SIZE")
+	cacheSizeUint64, err := strconv.ParseUint(cacheSize, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse block cache size: %w", err)
+	}
+
+	maxRetryTimes, err := strconv.Atoi(os.Getenv("MAX_RETRY_TIMES"))
 	if err != nil {
 		return nil, err
+	}
+
+	retryInterval, err := time.ParseDuration(os.Getenv("RETRY_INTERVAL"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse retry interval: %w", err)
+	}
+
+	cfg.BTCConfig = &BTCConfig{
+		RPCHost:              os.Getenv("BITCOIN_NODE_ADDRESS"),
+		RPCUser:              os.Getenv("BITCOIN_USER"),
+		RPCPass:              os.Getenv("BITCOIN_PASSWORD"),
+		PrunedNodeMaxPeers:   maxPeer,
+		BlockPollingInterval: blockIntervalDuration,
+		TxPollingInterval:    txPollingIntervalDuration,
+		BlockCacheSize:       cacheSizeUint64,
+		MaxRetryTimes:        uint(maxRetryTimes),
+		RetryInterval:        retryInterval,
+	}
+
+	autoCompactMinAge, err := time.ParseDuration(os.Getenv("AUTO_COMPACT_MIN_AGE"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse auto compact min age: %w", err)
+	}
+
+	timeOut, err := time.ParseDuration(os.Getenv("DB_TIMEOUT"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse db timeout: %w", err)
+	}
+
+	cfg.DatabaseConfig = &DBConfig{
+		DBPath:            os.Getenv("DB_PATH"),
+		DBFileName:        os.Getenv("DB_FILE_NAME"),
+		NoFreelistSync:    os.Getenv("NO_FREELIST_SYNC") == "true",
+		AutoCompact:       os.Getenv("AUTO_COMPACT") == "true",
+		AutoCompactMinAge: autoCompactMinAge,
+		DBTimeout:         timeOut,
+	}
+
+	processinTimeout, err := time.ParseDuration(os.Getenv("PROCESSING_TIMEOUT"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse processing timeout: %w", err)
+	}
+
+	msgMaxRetryAttempts, err := strconv.Atoi(os.Getenv("MSG_MAX_RETRY_ATTEMPTS"))
+	if err != nil {
+		return nil, err
+	}
+
+	reQueueDelayTime, err := time.ParseDuration(os.Getenv("REQUEUE_DELAY_TIME"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse requeue delay time: %w", err)
+	}
+
+	cfg.QueueConfig = &QueueConfig{
+		User:                os.Getenv("RABBITMQ_USER"),
+		Password:            os.Getenv("RABBITMQ_PASSWORD"),
+		Url:                 os.Getenv("RAIBBITMQ_URL"),
+		ProcessingTimeout:   processinTimeout,
+		MsgMaxRetryAttempts: int32(msgMaxRetryAttempts),
+		ReQueueDelayTime:    reQueueDelayTime,
+		QueueType:           os.Getenv("QUEUE_TYPE"),
+	}
+
+	cfg.MetricsConfig = &MetricsConfig{
+		Url: os.Getenv("METRICS_URL"),
 	}
 
 	// Make sure everything we just loaded makes sense.
@@ -127,7 +205,9 @@ func (cfg *Config) Validate() error {
 	switch cfg.BitcoinNetwork {
 	case "mainnet":
 		cfg.BTCNetParams = chaincfg.MainNetParams
-	case "testnet":
+	case "testnet4":
+		cfg.BTCNetParams = TestNet4Params
+	case "testnet3":
 		cfg.BTCNetParams = chaincfg.TestNet3Params
 	case "regtest":
 		cfg.BTCNetParams = chaincfg.RegressionNetParams

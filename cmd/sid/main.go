@@ -18,7 +18,8 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "sid"
 	app.Usage = "Staking Indexer Daemon (sid)."
-	app.Commands = append(app.Commands, sidcli.StartCommand, sidcli.InitCommand, sidcli.BtcHeaderCommand)
+	// app.Commands = append(app.Commands, sidcli.StartCommand, sidcli.InitCommand, sidcli.BtcHeaderCommand)
+	app.Commands = append(app.Commands, sidcli.StartCommand)
 
 	if err := app.Run(os.Args); err != nil {
 		fatal(err)

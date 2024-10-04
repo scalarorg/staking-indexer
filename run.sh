@@ -12,7 +12,7 @@ local() {
     rm -rf .sid/data/
 
     mkdir .sid
-    cp ../config/indexer-${ENV}.conf .sid/sid.conf
+    # cp ../config/indexer-${ENV}.conf .sid/sid.conf
     
     go run cmd/sid/main.go start --start-height ${BTC_START_HEIGHT} --home .sid --params-path ./global-params.json
 }

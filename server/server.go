@@ -73,12 +73,8 @@ func (s *Server) RunUntilShutdown(startHeight uint64) error {
 	}()
 
 	metricsCfg := s.cfg.MetricsConfig
-	promAddr, err := metricsCfg.Address()
-	if err != nil {
-		return err
-	}
 
-	ps := NewPrometheusServer(promAddr, s.logger)
+	ps := NewPrometheusServer(metricsCfg.Url, s.logger)
 
 	defer func() {
 		ps.Stop()

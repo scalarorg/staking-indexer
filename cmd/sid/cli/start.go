@@ -58,13 +58,16 @@ var StartCommand = cli.Command{
 }
 
 func start(ctx *cli.Context) error {
+	fmt.Print("Starting the stake-indexer server\n")
+
+
 	homePath, err := filepath.Abs(ctx.String(homeFlag))
 	if err != nil {
 		return err
 	}
 	homePath = utils.CleanAndExpandPath(homePath)
 
-	cfg, err := config.LoadConfig(homePath)
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}

@@ -9,7 +9,6 @@ require github.com/scalarorg/btc-vault v0.1.3
 require github.com/scalarorg/staking-queue-client v0.4.1
 
 require (
-	cosmossdk.io/math v1.3.0
 	github.com/avast/retry-go/v4 v4.5.1
 	github.com/babylonchain/babylon v0.9.0-rc.3.0.20240719052512-66d213148a02
 	github.com/babylonchain/networks/parameters v0.2.1
@@ -22,6 +21,7 @@ require (
 	github.com/btcsuite/btcwallet/wallet/txauthor v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/jessevdk/go-flags v1.5.0
+	github.com/joho/godotenv v1.5.1
 	github.com/jsternberg/zap-logfmt v1.3.0
 	github.com/lightningnetwork/lnd v0.16.4-beta.rc1
 	github.com/lightningnetwork/lnd/kvdb v1.4.1
@@ -48,6 +48,7 @@ require (
 	cosmossdk.io/depinject v1.0.0-alpha.4 // indirect
 	cosmossdk.io/errors v1.0.1 // indirect
 	cosmossdk.io/log v1.3.1 // indirect
+	cosmossdk.io/math v1.3.0 // indirect
 	cosmossdk.io/store v1.1.0 // indirect
 	cosmossdk.io/x/circuit v0.1.0 // indirect
 	cosmossdk.io/x/evidence v0.1.0 // indirect
