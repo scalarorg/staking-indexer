@@ -62,6 +62,8 @@ func (s *Server) RunUntilShutdown(startHeight uint64) error {
 		return nil
 	}
 
+	s.logger.Info("Starting Staking Indexer service...")
+
 	defer func() {
 		s.logger.Info("Shutdown complete")
 	}()
